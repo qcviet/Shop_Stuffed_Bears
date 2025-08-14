@@ -1,0 +1,15 @@
+.single-ship__title{
+    color: var(--single-text-color);
+    font-size:30px;
+}
+
+.single-ship__description{
+    color: var(--single-text-color);
+    font-size:20px;
+    margin: 20px 0;
+}
+
+.single-ship__image{
+    width: 60%;
+    margin: 0 auto;
+}

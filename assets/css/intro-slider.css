@@ -1,0 +1,19 @@
+.carousel {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.carousel-inner {
+    cursor: grab;
+    -webkit-user-drag: none;
+}
+
+.carousel-inner:active {
+    cursor: grabbing;
+}
+
+.carousel img {
+    pointer-events: none;
+    -webkit-user-drag: none;
+}

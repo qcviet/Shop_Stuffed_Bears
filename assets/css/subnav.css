@@ -1,0 +1,17 @@
+.subnav{
+    width: 100%;
+    background-color: var(--primary-color);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.subnav-menu__item a{
+    color: var(--black);
+    text-decoration: none;
+}
+
+.subnav-menu__item a:hover{
+    color: var(--secondary-color);
+    transition: color 0.3s ease;
+}
