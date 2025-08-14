@@ -8,18 +8,15 @@
  */
 ?>
 
-<?php include '../includes/global.php'; ?>
-<?php include 'header.php'; ?>
-<?php include 'subnav.php'; ?>
+<?php include __DIR__ . '/../includes/global.php'; ?>
+<?php include __DIR__ . '/header.php'; ?>
+<?php include __DIR__ . '/subnav.php'; ?>
 <div class="single-ship py-5">
     <div class="container">
         <h1 class="single-ship__title text-center mt-2">NÉN- HÚT CHÂN KHÔNG MIỄN PHÍ <br>🌟🌟🌟</h1>
         <p class="single-ship__title  text-center">Nén chân không là hút hết không khí trong gấu. Gấu Bông đó phải nhồi bông chất lượng thì sau khi nén mới giữ được hình dáng và form đẹp như cũ.</p>
         <div class="single-ship__image">
             <img src="<?php echo BASE_URL . '/assets/images/nen.png'; ?>" alt="Category 1" class="img-fluid w-100">
-        </div>
-        <div class="single-ship__image">
-            <img src="<?php echo BASE_URL . '/assets/images/.png'; ?>" alt="Category 1" class="img-fluid w-100">
         </div>
         <div>
             <h2 class="single-ship__description">Những Câu Hỏi Thường Gặp về việc Hút Chân Không để Nén Nhỏ Gấu<br>
@@ -55,6 +52,6 @@
     </div>
 </div>
 
-<?php include 'category-post.php'; ?>
+<?php include __DIR__ . '/category-post.php'; ?>
 
-<?php include 'footer.php'; ?>
+<?php include __DIR__ . '/footer.php'; ?>
