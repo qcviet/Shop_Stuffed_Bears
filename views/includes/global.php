@@ -28,6 +28,8 @@ if (session_status() === PHP_SESSION_NONE) {
 </head>
 
 <body>
+
+
     <script src="<?php echo JQUERY_JS; ?>"></script>
     <script src="<?php echo BOOTSTRAP_JS; ?>"></script>
     <script src="<?php echo CUSTOM_JS; ?>"></script>
