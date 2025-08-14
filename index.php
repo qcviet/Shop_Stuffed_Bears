@@ -118,17 +118,20 @@ if ($conn) {
             include 'views/users/logout.php';
             break;
         case 'orders':
-            // Redirect to profile page with orders tab
             header('Location: ' . BASE_URL . '?page=profile#orders');
             exit;
             break;
+        case 'single-compression':
+            include 'views/users/single-compression.php';
+            break;
+        case 'single-ship':
+            include 'views/users/single-ship.php';
+            break;
         default:
-            // 404 - page not found
             include 'views/users/404.php';
             break;
     }
 } else {
-    // Database connection failed, show error page
     echo "<!DOCTYPE html>
     <html lang='en'>
     <head>
