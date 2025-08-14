@@ -102,7 +102,6 @@ if ($conn) {
         case 'search':
         case 'help':
         case 'contact':
-            // Show coming soon page for pages that don't exist yet
             include 'views/users/coming-soon.php';
             break;
         case 'login':
@@ -126,6 +125,15 @@ if ($conn) {
             break;
         case 'single-ship':
             include 'views/users/single-ship.php';
+            break;
+        case 'single-gift-wrapping':
+            include 'views/users/single-gift-wrapping.php';
+            break;
+        case 'single-card':
+            include 'views/users/single-card.php';
+            break;
+        case 'single-washing':
+            include 'views/users/single-washing.php';
             break;
         default:
             include 'views/users/404.php';
