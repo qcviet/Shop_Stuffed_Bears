@@ -6,10 +6,24 @@
 .single-ship__description{
     color: var(--single-text-color);
     font-size:20px;
-    margin: 20px 0;
+    margin: 0px auto;
+    max-width: 60%;
 }
 
 .single-ship__image{
     width: 60%;
     margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .single-ship__title{
+        font-size: 20px;
+    }
+    .single-ship__image{
+        width: 100%;
+    }
+    .single-ship__description{
+        font-size: 18px;
+        max-width: 100%;
+    }
 }
