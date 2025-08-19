@@ -23,6 +23,7 @@ class AdminCRUD {
         $(document).on('click', '#addVariantRowInline', () => this.addVariantRowInline());
         $(document).on('click', '.variant-save-btn', (e) => this.saveVariantRowInline(e));
         $(document).on('click', '.variant-delete-btn', (e) => this.deleteVariantRowInline(e));
+        $(document).on('click', '.variant-remove-row-btn', (e) => this.removeVariantRowInline(e));
 
         // Category events
         $(document).on('click', '.add-category-btn', () => this.showCategoryModal());
@@ -79,7 +80,9 @@ class AdminCRUD {
             $('#variantsInlineHint').hide();
         } else {
             $('#variantsTableInline tbody').empty();
-            $('#variantsInlineHint').show();
+            $('#variantsInlineHint').hide();
+            // Prefill with one empty variant row for convenience
+            this.renderVariantRowInline({});
         }
     }
 
@@ -127,7 +130,28 @@ class AdminCRUD {
         e.preventDefault();
         const form = $(e.target);
         const formData = new FormData(form[0]);
-        formData.append('action', form.find('[name=product_id]').val() ? 'update' : 'create');
+        const isUpdate = !!form.find('[name=product_id]').val();
+        formData.append('action', isUpdate ? 'update' : 'create');
+
+        // If creating, gather inline variants and send with the request
+        if (!isUpdate) {
+            const variants = [];
+            $('#variantsTableInline tbody tr').each(function() {
+                const $tr = $(this);
+                const size = ($tr.find('.variant-size').val() || '').trim();
+                const priceRaw = ($tr.find('.variant-price').val() || '').toString().replace(/[^0-9]/g, '');
+                const price = priceRaw.length ? parseInt(priceRaw, 10) : 0;
+                const stock = parseInt($tr.find('.variant-stock').val() || '0', 10);
+                if (size) {
+                    variants.push({ size, price, stock });
+                }
+            });
+            if (variants.length === 0) {
+                this.showAlert('Error', 'Please add at least one variant (size, price, stock).', 'error');
+                return;
+            }
+            formData.append('variants_json', JSON.stringify(variants));
+        }
 
         try {
             const response = await $.ajax({
@@ -739,26 +763,38 @@ class AdminCRUD {
         const priceDisplay = variant.price !== undefined && variant.price !== null
             ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(Number(variant.price)))
             : '';
+        const hasProductId = !!$('#productForm [name=product_id]').val();
+        // Build actions depending on context
+        let actionsHtml = '';
+        if (variant.variant_id) {
+            actionsHtml = `
+                <button type="button" class="btn btn-sm btn-success variant-save-btn">Save</button>
+                <button type="button" class="btn btn-sm btn-outline-danger variant-delete-btn">Delete</button>
+            `;
+        } else if (hasProductId) {
+            // Editing existing product, new row -> allow save (create) and remove (discard)
+            actionsHtml = `
+                <button type="button" class="btn btn-sm btn-success variant-save-btn">Save</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary variant-remove-row-btn">Remove</button>
+            `;
+        } else {
+            // Creating new product -> rows are local only; allow remove
+            actionsHtml = `
+                <button type="button" class="btn btn-sm btn-outline-secondary variant-remove-row-btn">Remove</button>
+            `;
+        }
         const row = `
             <tr class="variant-row" ${idAttr}>
                 <td><input type="text" class="form-control form-control-sm variant-size" value="${variant.size || ''}"></td>
                 <td><input type="text" class="form-control form-control-sm variant-price" value="${priceDisplay}" placeholder="0"></td>
                 <td><input type="number" class="form-control form-control-sm variant-stock" value="${variant.stock !== undefined ? variant.stock : ''}" min="0" placeholder="0"></td>
-                <td>
-                    <button type="button" class="btn btn-sm btn-success variant-save-btn">Save</button>
-                    ${variant.variant_id ? `<button type="button" class="btn btn-sm btn-outline-danger variant-delete-btn">Delete</button>` : ''}
-                </td>
+                <td>${actionsHtml}</td>
             </tr>
         `;
         tbody.append(row);
     }
 
     addVariantRowInline() {
-        const hasId = !!$('#productForm [name=product_id]').val();
-        if (!hasId) {
-            $('#variantsInlineHint').show();
-            return;
-        }
         this.renderVariantRowInline({});
     }
 
@@ -771,6 +807,13 @@ class AdminCRUD {
         const price = priceRaw.length ? parseInt(priceRaw, 10) : 0;
         const stock = parseInt($row.find('.variant-stock').val() || '0', 10);
         if (!size) { alert('Size is required'); return; }
+        // If creating a new product (no productId), variants are saved together with the product
+        if (!productId) {
+            // Provide a small UX hint and keep the row locally
+            const $hint = $('#variantsInlineHint');
+            $hint.text('Variants will be saved together with the new product.').show();
+            return;
+        }
         try {
             let res;
             if (variantId) {
@@ -806,6 +849,11 @@ class AdminCRUD {
         } catch (err) {
             console.error('deleteVariantRowInline error', err);
         }
+    }
+
+    removeVariantRowInline(e) {
+        const $row = $(e.currentTarget).closest('tr');
+        $row.remove();
     }
 
     renderCategoriesTable(categories) {
