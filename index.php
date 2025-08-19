@@ -113,6 +113,9 @@ if ($conn) {
         case 'profile':
             include 'views/users/profile.php';
             break;
+        case 'category':
+            include 'views/users/category-page.php';
+            break;
         case 'logout':
             include 'views/users/logout.php';
             break;
