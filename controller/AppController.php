@@ -221,6 +221,11 @@ class AppController {
         return $this->orderModel->getById($order_id);
     }
 
+    public function getOrderItems($order_id) {
+        if (!$this->isConnected()) return false;
+        return $this->orderModel->getItemsByOrder($order_id);
+    }
+
     public function getOrdersByUser($user_id, $limit = null, $offset = null) {
         if (!$this->isConnected()) return false;
         return $this->orderModel->getByUser($user_id, $limit, $offset);
@@ -239,6 +244,15 @@ class AppController {
     public function updateOrderPaymentStatus($order_id, $payment_status) {
         if (!$this->isConnected()) return false;
         return $this->orderModel->updatePaymentStatus($order_id, $payment_status);
+    }
+
+    public function cancelUserOrder($user_id, $order_id) {
+        if (!$this->isConnected()) return false;
+        $order = $this->orderModel->getById($order_id);
+        if (!$order) return false;
+        if ((int)$order['user_id'] !== (int)$user_id) return false;
+        if ($order['status'] !== 'Chờ xác nhận') return false;
+        return $this->orderModel->updateStatus($order_id, 'Đã hủy');
     }
 
     public function getOrderStatistics() {
@@ -267,13 +281,13 @@ class AppController {
         return $this->cartModel->getCartWithItems($user_id);
     }
 
-    public function addToCart($user_id, $product_id, $quantity = 1) {
+    public function addToCart($user_id, $variant_id, $quantity = 1) {
         if (!$this->isConnected()) return false;
         
         $cart = $this->cartModel->getOrCreateCart($user_id);
         if (!$cart) return false;
         
-        return $this->cartModel->addItem($cart['cart_id'], $product_id, $quantity);
+        return $this->cartModel->addItem($cart['cart_id'], $variant_id, $quantity);
     }
 
     public function updateCartItemQuantity($cart_item_id, $quantity) {
@@ -311,6 +325,91 @@ class AppController {
         if (!$cart) return 0;
         
         return $this->cartModel->getCartItemCount($cart['cart_id']);
+    }
+
+    /**
+     * Checkout the current user's cart and create an order with items.
+     * - Validates stock at variant level
+     * - Calculates total from variant prices
+     * - Inserts into orders and order_items
+     * - Decrements variant stock
+     * - Clears cart
+     * Returns created order_id on success, or false on failure
+     */
+    public function checkoutCart($user_id, $payment_method = 'COD', $markPaid = false) {
+        if (!$this->isConnected()) return false;
+
+        // Get cart and items
+        $cart = $this->cartModel->getByUser($user_id);
+        if (!$cart) return false;
+        $cartItems = $this->cartModel->getCartWithItems($user_id);
+        if (empty($cartItems)) return false;
+
+        try {
+            $this->db->beginTransaction();
+
+            // Validate stock and compute total using FOR UPDATE
+            $total = 0;
+            $preparedVariantStmt = $this->db->prepare("SELECT variant_id, product_id, price, stock FROM product_variants WHERE variant_id = :vid FOR UPDATE");
+            foreach ($cartItems as $item) {
+                $variantId = (int)$item['variant_id'];
+                $quantity = (int)$item['quantity'];
+                if ($quantity <= 0) { throw new Exception('Invalid cart quantity'); }
+
+                $preparedVariantStmt->execute([':vid' => $variantId]);
+                $variantRow = $preparedVariantStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$variantRow) { throw new Exception('Variant not found'); }
+                if ((int)$variantRow['stock'] < $quantity) { throw new Exception('Insufficient stock for variant #' . $variantId); }
+
+                $lineTotal = $quantity * (float)$variantRow['price'];
+                $total += $lineTotal;
+            }
+
+            // Create order
+            $status = 'Chờ xác nhận';
+            $payment_status = $markPaid ? 'Đã thanh toán' : 'Chưa thanh toán';
+            if (!$this->orderModel->create($user_id, $total, $status, $payment_status)) {
+                throw new Exception('Failed to create order');
+            }
+            $orderId = (int)$this->db->lastInsertId();
+
+            // Insert order items and decrement stock
+            $insertItemStmt = $this->db->prepare("INSERT INTO order_items (order_id, variant_id, quantity, price) VALUES (:oid, :vid, :qty, :price)");
+            $decrementStockStmt = $this->db->prepare("UPDATE product_variants SET stock = stock - :qty WHERE variant_id = :vid");
+
+            foreach ($cartItems as $item) {
+                $variantId = (int)$item['variant_id'];
+                $quantity = (int)$item['quantity'];
+
+                // Fetch current price for accuracy
+                $priceStmt = $this->db->prepare("SELECT price FROM product_variants WHERE variant_id = :vid");
+                $priceStmt->execute([':vid' => $variantId]);
+                $price = (float)($priceStmt->fetchColumn());
+
+                $insertItemStmt->execute([
+                    ':oid' => $orderId,
+                    ':vid' => $variantId,
+                    ':qty' => $quantity,
+                    ':price' => $price,
+                ]);
+
+                $decrementStockStmt->execute([
+                    ':qty' => $quantity,
+                    ':vid' => $variantId,
+                ]);
+            }
+
+            // Clear cart
+            $this->cartModel->clearCart($cart['cart_id']);
+
+            $this->db->commit();
+            return $orderId;
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return false;
+        }
     }
 
     // Statistics Methods
