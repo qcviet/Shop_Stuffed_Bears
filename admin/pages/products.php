@@ -96,20 +96,24 @@ if (!$db) {
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="price" class="form-label">Price (VND)</label>
-                                <input type="text" class="form-control" id="price" name="price" placeholder="e.g. 150000">
-                                <small class="text-muted">Leave empty if not set. Will be shown as VND without decimals.</small>
-                            </div>
+                    <div class="mb-3">
+                        <label class="form-label mb-1">Variants</label>
+                        <div class="text-muted small mb-2">Add size, price and stock per variant</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle" id="variantsTableInline">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 25%">Size</th>
+                                        <th style="width: 25%">Price (VND)</th>
+                                        <th style="width: 25%">Stock</th>
+                                        <th style="width: 25%">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="stock" class="form-label">Stock</label>
-                                <input type="number" class="form-control" id="stock" name="stock" min="0">
-                            </div>
-                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" id="addVariantRowInline">Add Variant</button>
+                        <div class="text-muted small mt-2" id="variantsInlineHint" style="display:none;">Save the product first to add variants.</div>
                     </div>
                     
                     <div class="mb-3">
@@ -124,4 +128,4 @@ if (!$db) {
             </form>
         </div>
     </div>
-</div> 
+</div>
