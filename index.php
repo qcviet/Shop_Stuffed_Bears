@@ -98,7 +98,6 @@ if ($conn) {
         case 'gifts':
         case 'cartoons':
         case 'accessories':
-        case 'cart':
         case 'search':
         case 'help':
         case 'contact':
@@ -120,8 +119,13 @@ if ($conn) {
             include 'views/users/logout.php';
             break;
         case 'orders':
-            header('Location: ' . BASE_URL . '?page=profile#orders');
-            exit;
+            include 'views/users/orders.php';
+            break;
+        case 'cart':
+            include 'views/users/cart.php';
+            break;
+        case 'checkout':
+            include 'views/users/checkout.php';
             break;
         case 'single-compression':
             include 'views/users/single-compression.php';
@@ -137,6 +141,12 @@ if ($conn) {
             break;
         case 'single-washing':
             include 'views/users/single-washing.php';
+            break;
+        case 'product-detail':
+            include 'views/users/product-detail.php';
+            break;
+        case 'order-detail':
+            include 'views/users/order-detail.php';
             break;
         default:
             include 'views/users/404.php';
