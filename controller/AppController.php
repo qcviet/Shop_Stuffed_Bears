@@ -165,9 +165,9 @@ class AppController {
     }
 
     // Product Management Methods
-    public function createProduct($category_id, $product_name, $description, $price, $stock = 0) {
+    public function createProduct($category_id, $product_name, $description) {
         if (!$this->isConnected()) return false;
-        return $this->productModel->create($category_id, $product_name, $description, $price, $stock);
+        return $this->productModel->create($category_id, $product_name, $description);
     }
 
     public function getProductById($product_id) {
