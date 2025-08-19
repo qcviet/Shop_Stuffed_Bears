@@ -79,7 +79,8 @@ $products = $productModel ? $productModel->getByCategoryWithFilters($categoryId,
 				<?php if (!empty($products)): ?>
 					<?php foreach ($products as $p): ?>
 						<div class="col">
-							<a href="#" class="d-block text-decoration-none card h-100">
+							<div class="d-block text-decoration-none card h-100 p-0">
+								<a href="<?php echo BASE_URL . '?page=product-detail&id=' . (int)$p['product_id']; ?>">
 								<img src="<?php 
 									$img = !empty($p['image_url']) ? $p['image_url'] : 'assets/images/sp1.jpeg';
 									echo (strpos($img, 'http') === 0) ? $img : (BASE_URL . '/' . $img);
@@ -89,10 +90,22 @@ $products = $productModel ? $productModel->getByCategoryWithFilters($categoryId,
 									<div class="text-danger small mb-1"><?php 
 										$minPrice = isset($p['price']) ? (int)round($p['price']) : 0;
 										echo $minPrice > 0 ? number_format($minPrice, 0, '.', ',') . ' ₫' : '—';
-									?></div>
+									?>
+									</div>
 									<div class="badge bg-light text-muted">Kho: <?php echo (int)$p['stock']; ?></div>
+									</a>
+									<?php if (!empty($p['min_variant_id'])): ?>
+										<form method="post" action="<?php echo BASE_URL; ?>/?page=cart" class="mt-2">
+											<input type="hidden" name="action" value="add" />
+											<input type="hidden" name="variant_id" value="<?php echo (int)$p['min_variant_id']; ?>" />
+											<input type="hidden" name="quantity" value="1" />
+											<button class="btn btn-sm btn-primary w-100" type="submit">
+												<i class="bi bi-bag-plus"></i> Thêm vào giỏ
+											</button>
+										</form>
+									<?php endif; ?>
 								</div>
-							</a>
+							</div>
 						</div>
 					<?php endforeach; ?>
 				<?php else: ?>
