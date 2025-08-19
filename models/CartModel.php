@@ -29,13 +29,15 @@ class CartModel {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Get cart with items
+    // Get cart with items (joined to variants and products)
     public function getCartWithItems($user_id) {
-        $query = "SELECT c.*, ci.cart_item_id, ci.product_id, ci.quantity,
-                         p.product_name, p.price, p.stock, cat.category_name
+        $query = "SELECT c.*, ci.cart_item_id, ci.variant_id, ci.quantity,
+                         p.product_id, p.product_name, v.size, v.price, v.stock, cat.category_name,
+                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
                   FROM " . $this->table_name . " c
                   LEFT JOIN cart_items ci ON c.cart_id = ci.cart_id
-                  LEFT JOIN products p ON ci.product_id = p.product_id
+                  LEFT JOIN product_variants v ON ci.variant_id = v.variant_id
+                  LEFT JOIN products p ON v.product_id = p.product_id
                   LEFT JOIN categories cat ON p.category_id = cat.category_id
                   WHERE c.user_id = :user_id";
         $stmt = $this->conn->prepare($query);
@@ -44,10 +46,10 @@ class CartModel {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Add item to cart
-    public function addItem($cart_id, $product_id, $quantity = 1) {
+    // Add item to cart (by variant)
+    public function addItem($cart_id, $variant_id, $quantity = 1) {
         // Check if item already exists in cart
-        $existing_item = $this->getCartItem($cart_id, $product_id);
+        $existing_item = $this->getCartItem($cart_id, $variant_id);
         
         if ($existing_item) {
             // Update quantity
@@ -55,21 +57,21 @@ class CartModel {
             return $this->updateItemQuantity($existing_item['cart_item_id'], $new_quantity);
         } else {
             // Add new item
-            $query = "INSERT INTO cart_items (cart_id, product_id, quantity) VALUES (:cart_id, :product_id, :quantity)";
+            $query = "INSERT INTO cart_items (cart_id, variant_id, quantity) VALUES (:cart_id, :variant_id, :quantity)";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":cart_id", $cart_id);
-            $stmt->bindParam(":product_id", $product_id);
+            $stmt->bindParam(":variant_id", $variant_id);
             $stmt->bindParam(":quantity", $quantity);
             return $stmt->execute();
         }
     }
 
-    // Get cart item
-    public function getCartItem($cart_id, $product_id) {
-        $query = "SELECT * FROM cart_items WHERE cart_id = :cart_id AND product_id = :product_id";
+    // Get cart item by variant
+    public function getCartItem($cart_id, $variant_id) {
+        $query = "SELECT * FROM cart_items WHERE cart_id = :cart_id AND variant_id = :variant_id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":cart_id", $cart_id);
-        $stmt->bindParam(":product_id", $product_id);
+        $stmt->bindParam(":variant_id", $variant_id);
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -103,11 +105,11 @@ class CartModel {
         return $stmt->execute();
     }
 
-    // Get cart total
+    // Get cart total (using variant price)
     public function getCartTotal($cart_id) {
-        $query = "SELECT SUM(ci.quantity * p.price) as total
+        $query = "SELECT SUM(ci.quantity * v.price) as total
                   FROM cart_items ci
-                  JOIN products p ON ci.product_id = p.product_id
+                  JOIN product_variants v ON ci.variant_id = v.variant_id
                   WHERE ci.cart_id = :cart_id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":cart_id", $cart_id);
@@ -126,12 +128,12 @@ class CartModel {
         return $result['count'] ?? 0;
     }
 
-    // Check if product is in cart
-    public function isProductInCart($cart_id, $product_id) {
-        $query = "SELECT COUNT(*) as count FROM cart_items WHERE cart_id = :cart_id AND product_id = :product_id";
+    // Check if variant is in cart
+    public function isVariantInCart($cart_id, $variant_id) {
+        $query = "SELECT COUNT(*) as count FROM cart_items WHERE cart_id = :cart_id AND variant_id = :variant_id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":cart_id", $cart_id);
-        $stmt->bindParam(":product_id", $product_id);
+        $stmt->bindParam(":variant_id", $variant_id);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result['count'] > 0;
@@ -149,24 +151,25 @@ class CartModel {
         return $cart;
     }
 
-    // Validate cart items (check stock)
+    // Validate cart items (check stock at variant level)
     public function validateCart($cart_id) {
-        $query = "SELECT ci.*, p.product_name, p.stock
+        $query = "SELECT ci.*, v.stock, v.size, p.product_name
                   FROM cart_items ci
-                  JOIN products p ON ci.product_id = p.product_id
-                  WHERE ci.cart_id = :cart_id AND ci.quantity > p.stock";
+                  JOIN product_variants v ON ci.variant_id = v.variant_id
+                  JOIN products p ON v.product_id = p.product_id
+                  WHERE ci.cart_id = :cart_id AND ci.quantity > v.stock";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":cart_id", $cart_id);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Update cart item quantities based on available stock
+    // Update cart item quantities based on available stock (variant level)
     public function updateQuantitiesToStock($cart_id) {
         $query = "UPDATE cart_items ci
-                  JOIN products p ON ci.product_id = p.product_id
-                  SET ci.quantity = LEAST(ci.quantity, p.stock)
-                  WHERE ci.cart_id = :cart_id AND ci.quantity > p.stock";
+                  JOIN product_variants v ON ci.variant_id = v.variant_id
+                  SET ci.quantity = LEAST(ci.quantity, v.stock)
+                  WHERE ci.cart_id = :cart_id AND ci.quantity > v.stock";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":cart_id", $cart_id);
         return $stmt->execute();
