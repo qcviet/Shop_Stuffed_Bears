@@ -8,6 +8,9 @@ class AdminCRUD {
         this.bindEvents();
         this.bindImagePreview();
         this.bindPriceFormatting();
+        // Default order filters
+        this._orderStatusFilter = '';
+        this._orderPaymentFilter = '';
         this.loadData();
     }
 
@@ -39,11 +42,19 @@ class AdminCRUD {
         $(document).on('submit', '#userForm', (e) => this.saveUser(e));
 
         // Order events
-        $(document).on('click', '.update-order-status', (e) => this.updateOrderStatus(e));
+        $(document).on('click', '.view-order-btn', (e) => this.viewOrderDetail(e));
+        $(document).on('click', '.update-order-status', (e) => this.openOrderUpdateModal(e));
+        $(document).on('click', '#saveOrderUpdateBtn', () => this.saveOrderUpdate());
         $(document).on('click', '.delete-order-btn', (e) => this.deleteOrder(e));
 
         // Orders history filter
         $(document).on('submit', '#ordersHistoryFilter', (e) => this.applyOrdersHistoryFilter(e));
+
+        // Removed filter toolbar in UI; no filter handlers needed
+
+        // Quick filters for orders
+        $(document).on('click', '#filterPendingOrdersBtn', () => this.loadOrders('Chờ xác nhận'));
+        $(document).on('click', '#viewAllOrdersBtn', () => this.loadOrders(''));
     }
 
     // Product Methods
@@ -384,8 +395,8 @@ class AdminCRUD {
 
     // Order Methods
     async updateOrderStatus(e) {
-        const orderId = $(e.target).data('id');
-        const currentStatus = $(e.target).data('status');
+        const orderId = $(e.currentTarget).data('id');
+        const currentStatus = $(e.currentTarget).data('status');
         const newStatus = prompt('Enter new status (Chờ xác nhận/Đang giao/Đã giao/Đã hủy):', currentStatus);
         
         if (newStatus && newStatus !== currentStatus) {
@@ -409,7 +420,7 @@ class AdminCRUD {
     }
 
     async deleteOrder(e) {
-        const orderId = $(e.target).data('id');
+        const orderId = $(e.currentTarget).data('id');
         
         if (confirm('Are you sure you want to delete this order?')) {
             try {
@@ -507,9 +518,11 @@ class AdminCRUD {
         }
     }
 
-    async loadOrders() {
+    async loadOrders(statusFilter = '') {
         try {
-            const response = await $.get('actions/order_actions.php', { action: 'list' });
+            const params = { action: 'list' };
+            if (statusFilter) params.status = statusFilter;
+            const response = await $.get('actions/order_actions.php', params);
             if (response.success) {
                 this.renderOrdersTable(response.data);
                 this.renderPagination(response.pages, response.current_page, 'orders');
@@ -909,21 +922,130 @@ class AdminCRUD {
         
         orders.forEach(order => {
             const statusClass = this.getStatusClass(order.status);
+            const paymentIsPaid = (order.payment_status === 'Đã thanh toán');
+            const paymentBadgeClass = paymentIsPaid ? 'bg-success' : 'bg-danger';
+            const canDelete = (order.status === 'Đã hủy');
+            const deleteBtnHtml = canDelete ? `<button class="btn btn-sm btn-outline-danger delete-order-btn" data-id="${order.order_id}"><i class="bi bi-trash"></i></button>` : '';
             const row = `
                 <tr>
                     <td>#${order.order_id}</td>
                     <td>${order.full_name || order.username}</td>
                     <td>${order.total_amount}₫</td>
                     <td><span class="badge ${statusClass}">${order.status}</span></td>
+                    <td><span class="badge ${paymentBadgeClass}">${order.payment_status || 'Chưa thanh toán'}</span></td>
                     <td>${order.order_date ? new Date(order.order_date).toLocaleDateString() : 'N/A'}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary update-order-status" data-id="${order.order_id}" data-status="${order.status}"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-outline-danger delete-order-btn" data-id="${order.order_id}"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary view-order-btn" data-id="${order.order_id}" title="View details"><i class="bi bi-eye"></i></button>
+                        <button class="btn btn-sm btn-outline-primary update-order-status" data-id="${order.order_id}" data-status="${order.status}" data-payment="${order.payment_status || ''}" title="Edit status & payment"><i class="bi bi-pencil"></i></button>
+                        ${deleteBtnHtml}
                     </td>
                 </tr>
             `;
             tbody.append(row);
         });
+    }
+
+    async viewOrderDetail(e) {
+        const orderId = $(e.currentTarget).data('id');
+        try {
+            const res = await $.get('actions/order_actions.php', { action: 'get', order_id: orderId });
+            if (!res.success) {
+                this.showAlert('Error', res.message || 'Failed to load order details', 'error');
+                return;
+            }
+            const order = res.data || {};
+            const items = res.items || [];
+            const totalQuantity = items.reduce((sum, it) => sum + (parseInt(it.quantity, 10) || 0), 0);
+            // Fill modal fields
+            const modal = $('#orderDetailModal');
+            modal.find('.od-order-id').text(`#${order.order_id}`);
+            modal.find('.od-customer-name').text(order.full_name || order.username || 'N/A');
+            modal.find('.od-customer-email').text(order.email || 'N/A');
+            modal.find('.od-order-date').text(order.order_date ? new Date(order.order_date).toLocaleString() : 'N/A');
+            modal.find('.od-status').text(order.status || '');
+            modal.find('.od-payment').text(order.payment_status || '');
+            modal.find('.od-total').text(new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(order.total_amount || 0)));
+            modal.find('.od-items-count').text(items.length);
+            modal.find('.od-total-quantity').text(totalQuantity);
+
+            const tbody = modal.find('tbody.od-items-tbody');
+            tbody.empty();
+            items.forEach(it => {
+                const price = Number(it.price || 0);
+                const qty = Number(it.quantity || 0);
+                const line = price * qty;
+                const tr = `
+                    <tr>
+                        <td>${it.product_name || ''}</td>
+                        <td>${it.size || ''}</td>
+                        <td class="text-end">${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(price)}</td>
+                        <td class="text-end">${qty}</td>
+                        <td class="text-end">${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(line)}</td>
+                    </tr>
+                `;
+                tbody.append(tr);
+            });
+            modal.modal('show');
+        } catch (err) {
+            this.showAlert('Error', 'Failed to load order details', 'error');
+        }
+    }
+
+    openOrderUpdateModal(e) {
+        const $btn = $(e.currentTarget);
+        const id = $btn.data('id');
+        const status = $btn.data('status') || 'Chờ xác nhận';
+        const payment = $btn.data('payment') || 'Chưa thanh toán';
+        const modal = $('#orderUpdateModal');
+        modal.find('[name=order_id]').val(id);
+        modal.find('[name=status]').val(status);
+        modal.find('[name=payment_status]').val(payment);
+        modal.modal('show');
+    }
+
+    async saveOrderUpdate() {
+        const modal = $('#orderUpdateModal');
+        const id = modal.find('[name=order_id]').val();
+        const status = modal.find('[name=status]').val();
+        const payment = modal.find('[name=payment_status]').val();
+        try {
+            const [res1, res2] = await Promise.all([
+                $.post('actions/order_actions.php', { action: 'update_status', order_id: id, status }),
+                $.post('actions/order_actions.php', { action: 'update_payment_status', order_id: id, payment_status: payment })
+            ]);
+            if ((res1 && res1.success) && (res2 && res2.success)) {
+                this.showAlert('Success', 'Order updated', 'success');
+                modal.modal('hide');
+                this.loadOrders();
+            } else {
+                const msg = (res1 && res1.message ? res1.message : '') + ' ' + (res2 && res2.message ? res2.message : '');
+                this.showAlert('Error', msg || 'Failed to update order', 'error');
+            }
+        } catch (err) {
+            this.showAlert('Error', 'Failed to update order', 'error');
+        }
+    }
+
+    async updatePaymentStatus(e) {
+        const $btn = $(e.currentTarget);
+        const orderId = $btn.data('id');
+        const currentPayment = ($btn.data('payment') || '').toString();
+        const newPayment = currentPayment === 'Đã thanh toán' ? 'Chưa thanh toán' : 'Đã thanh toán';
+        try {
+            const response = await $.post('actions/order_actions.php', {
+                action: 'update_payment_status',
+                order_id: orderId,
+                payment_status: newPayment
+            });
+            if (response.success) {
+                this.showAlert('Success', response.message, 'success');
+                this.loadOrders();
+            } else {
+                this.showAlert('Error', response.message, 'error');
+            }
+        } catch (err) {
+            this.showAlert('Error', 'Failed to update payment status', 'error');
+        }
     }
 
     renderPagination(pages, currentPage, type) {
@@ -962,12 +1084,16 @@ class AdminCRUD {
     }
 
     getStatusClass(status) {
-        switch (status) {
-            case 'Chờ xác nhận': return 'bg-warning';
-            case 'Đang giao': return 'bg-info';
+        const s = (status || '').toString().trim();
+        // Normalize composed characters to avoid mismatch due to accents forms
+        const n = typeof s.normalize === 'function' ? s.normalize('NFC') : s;
+        switch (n) {
+            case 'Chờ xác nhận': return 'bg-warning text-dark';
+            case 'Đã xác nhận': return 'bg-primary';
+            case 'Đang giao': return 'bg-info text-dark';
             case 'Đã giao': return 'bg-success';
             case 'Đã hủy': return 'bg-danger';
-            default: return 'bg-secondary';
+            default: return 'bg-light text-dark border';
         }
     }
 
