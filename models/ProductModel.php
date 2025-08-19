@@ -12,27 +12,29 @@ class ProductModel {
         $this->conn = $db;
     }
 
-    // Create new product
-    public function create($category_id, $product_name, $description, $price, $stock = 0) {
+    // Create new product (price/stock are derived from variants)
+    public function create($category_id, $product_name, $description) {
         $query = "INSERT INTO " . $this->table_name . " 
-                  (category_id, product_name, description, price, stock) 
-                  VALUES (:category_id, :product_name, :description, :price, :stock)";
+                  (category_id, product_name, description) 
+                  VALUES (:category_id, :product_name, :description)";
         
         $stmt = $this->conn->prepare($query);
         
         $stmt->bindParam(":category_id", $category_id);
         $stmt->bindParam(":product_name", $product_name);
         $stmt->bindParam(":description", $description);
-        $stmt->bindParam(":price", $price);
-        $stmt->bindParam(":stock", $stock);
         
         return $stmt->execute();
     }
 
     // Get product by ID
     public function getById($product_id) {
-        $query = "SELECT p.*, c.category_name,
-                         GROUP_CONCAT(pi.image_url ORDER BY pi.image_id ASC) AS images
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
+                        (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
+                        GROUP_CONCAT(pi.image_url ORDER BY pi.image_id ASC) AS images
                   FROM " . $this->table_name . " p 
                   LEFT JOIN categories c ON p.category_id = c.category_id 
                   LEFT JOIN product_images pi ON pi.product_id = p.product_id
@@ -50,8 +52,13 @@ class ProductModel {
 
     // Get all products
     public function getAll($limit = null, $offset = null, $category_id = null) {
-        $query = "SELECT p.*, c.category_name,
-                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
+                        (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
+                        (SELECT GROUP_CONCAT(DISTINCT v3.price ORDER BY v3.price ASC SEPARATOR ',') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS price_list,
+                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
                   FROM " . $this->table_name . " p 
                   LEFT JOIN categories c ON p.category_id = c.category_id";
         
@@ -127,7 +134,8 @@ class ProductModel {
 
     // Update product
     public function update($product_id, $data) {
-        $allowed_fields = ['category_id', 'product_name', 'description', 'price', 'stock'];
+        // Only allow base fields; price/stock derived from variants
+        $allowed_fields = ['category_id', 'product_name', 'description'];
         $set_clause = [];
         $params = [':product_id' => $product_id];
         
@@ -157,11 +165,8 @@ class ProductModel {
 
     // Update stock
     public function updateStock($product_id, $new_stock) {
-        $query = "UPDATE " . $this->table_name . " SET stock = :stock WHERE product_id = :product_id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(":stock", $new_stock);
-        $stmt->bindParam(":product_id", $product_id);
-        return $stmt->execute();
+        // Deprecated: stock is derived from variants; method kept for backward compatibility
+        return true;
     }
 
     // Get product count
@@ -187,15 +192,26 @@ class ProductModel {
 
     // Get low stock products
     public function getLowStock($threshold = 10) {
-        $query = "SELECT p.*, c.category_name 
-                  FROM " . $this->table_name . " p 
-                  LEFT JOIN categories c ON p.category_id = c.category_id 
-                  WHERE p.stock <= :threshold 
-                  ORDER BY p.stock ASC";
+        // Derive stock from variants sum
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        COALESCE(SUM(v.stock), 0) AS total_stock
+                  FROM " . $this->table_name . " p
+                  LEFT JOIN categories c ON p.category_id = c.category_id
+                  LEFT JOIN product_variants v ON v.product_id = p.product_id
+                  GROUP BY p.product_id
+                  HAVING total_stock <= :threshold
+                  ORDER BY total_stock ASC";
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(":threshold", $threshold);
+        $stmt->bindParam(":threshold", $threshold, PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Normalize keys for downstream code: expose 'stock' like before
+        foreach ($rows as &$row) {
+            $row['stock'] = isset($row['total_stock']) ? (int)$row['total_stock'] : 0;
+        }
+        return $rows;
     }
 
     // Get new products
