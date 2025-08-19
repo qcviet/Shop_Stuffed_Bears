@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('Chờ xác nhận', 'Đang giao', 'Đã giao', 'Đã hủy') DEFAULT 'Chờ xác nhận',
+    status ENUM('Chờ xác nhận', 'Đang giao', 'Đã giao', 'Đã hủy','Đã xác nhận') DEFAULT 'Chờ xác nhận',
     payment_status ENUM('Chưa thanh toán', 'Đã thanh toán') DEFAULT 'Chưa thanh toán',
     total_amount DECIMAL(10,2) NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
