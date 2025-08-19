@@ -18,7 +18,7 @@ require_once __DIR__ . '/../../config/config.php';
                     </form>
                 </div>
                 <ul class="header-menu__items d-flex flex-wrap justify-content-center align-items-center fw-bold mb-0">
-                    <li class="header-menu__items-link"><a href="<?php echo BASE_URL; ?>/cart"><i class="bi bi-bag-heart"></i></a></li>
+                    <li class="header-menu__items-link"><a href="<?php echo BASE_URL; ?>?page=cart"><i class="bi bi-bag-heart"></i></a></li>
                     <?php if (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'user'): ?>
                         <li class="header-menu__items-link user-menu">
                             <a href="#" class="user-menu__toggle">
