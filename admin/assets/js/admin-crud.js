@@ -16,7 +16,13 @@ class AdminCRUD {
         $(document).on('click', '.add-product-btn', () => this.showProductModal());
         $(document).on('click', '.edit-product-btn', (e) => this.editProduct(e));
         $(document).on('click', '.delete-product-btn', (e) => this.deleteProduct(e));
+        $(document).on('click', '.expand-variants-btn', (e) => this.toggleVariantsDetails(e));
         $(document).on('submit', '#productForm', (e) => this.saveProduct(e));
+        // Variant events
+        // Inline variant events
+        $(document).on('click', '#addVariantRowInline', () => this.addVariantRowInline());
+        $(document).on('click', '.variant-save-btn', (e) => this.saveVariantRowInline(e));
+        $(document).on('click', '.variant-delete-btn', (e) => this.deleteVariantRowInline(e));
 
         // Category events
         $(document).on('click', '.add-category-btn', () => this.showCategoryModal());
@@ -49,10 +55,6 @@ class AdminCRUD {
             form.find('[name=product_name]').val(product.product_name);
             form.find('[name=category_id]').val(product.category_id);
             form.find('[name=description]').val(product.description);
-            const priceInt = (product.price !== undefined && product.price !== null) ? Math.round(Number(product.price)) : '';
-            const priceDisplay = priceInt === '' ? '' : new Intl.NumberFormat('vi-VN').format(priceInt);
-            form.find('[name=price]').val(priceDisplay);
-            form.find('[name=stock]').val(product.stock);
             modal.find('.modal-title').text('Edit Product');
             const base = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : (window.BASE_URL || '');
             const images = product.images || (product.image_url ? [product.image_url] : []);
@@ -70,6 +72,15 @@ class AdminCRUD {
         }
         
         modal.modal('show');
+        // Load inline variants table if editing existing product
+        const pid = form.find('[name=product_id]').val();
+        if (pid) {
+            this.loadVariantsInline(pid);
+            $('#variantsInlineHint').hide();
+        } else {
+            $('#variantsTableInline tbody').empty();
+            $('#variantsInlineHint').show();
+        }
     }
 
     async editProduct(e) {
@@ -116,13 +127,6 @@ class AdminCRUD {
         e.preventDefault();
         const form = $(e.target);
         const formData = new FormData(form[0]);
-        // Normalize price to integer VND or empty (strip separators)
-        const rawPrice = (form.find('[name=price]').val() || '').toString().replace(/[^0-9]/g, '');
-        if (rawPrice.length > 0) {
-            formData.set('price', parseInt(rawPrice, 10));
-        } else {
-            formData.delete('price');
-        }
         formData.append('action', form.find('[name=product_id]').val() ? 'update' : 'create');
 
         try {
@@ -428,8 +432,7 @@ class AdminCRUD {
             const currentPage = parseInt(urlParams.get('p') || '1', 10);
             const response = await $.get('actions/product_actions.php', { action: 'list', page: currentPage, limit: 10 });
             if (response.success) {
-                // Ensure price is integer for display
-                const products = (response.data || []).map(p => ({ ...p, price: p.price ? Math.round(Number(p.price)) : 0 }));
+                const products = (response.data || []);
                 this.renderProductsTable(products);
                 this.renderPagination(response.pages || 1, response.current_page || 1, 'products');
             }
@@ -560,22 +563,103 @@ class AdminCRUD {
         products.forEach(product => {
             const base = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : (window.BASE_URL || '');
             const imageUrl = product.image_url ? (product.image_url.startsWith('http') ? product.image_url : `${base}/${product.image_url}`) : `${base}/assets/images/sp1.jpeg`;
+            // Build prices list display from lowest to highest
+            let pricesDisplay = '—';
+            if (product.price_list) {
+                const prices = String(product.price_list)
+                    .split(',')
+                    .map(p => Number(p))
+                    .filter(n => !isNaN(n))
+                    .sort((a, b) => a - b);
+                if (prices.length > 0) {
+                    pricesDisplay = prices.map(n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)).join(', ');
+                }
+            }
             const row = `
                 <tr>
                     <td>${product.product_id}</td>
                     <td><img src="${imageUrl}" alt="${product.product_name}" style="height:40px;width:40px;object-fit:cover;border-radius:6px;" /></td>
                     <td>${product.product_name}</td>
                     <td>${product.category_name || 'N/A'}</td>
-                    <td>${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.price || 0))}</td>
+                    <td>${this.renderMinMaxPrice(product)}</td>
                     <td>${product.stock}</td>
                     <td>
                         <button class="btn btn-sm btn-outline-primary edit-product-btn" data-id="${product.product_id}"><i class="bi bi-pencil"></i></button>
                         <button class="btn btn-sm btn-outline-danger delete-product-btn" data-id="${product.product_id}" data-name="${product.product_name}"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary expand-variants-btn" data-id="${product.product_id}" title="View variants"><i class="bi bi-chevron-down"></i></button>
                     </td>
                 </tr>
             `;
             tbody.append(row);
         });
+    }
+
+    renderMinMaxPrice(product) {
+        // prefer price_list; else derive from variants if attached
+        let prices = [];
+        if (product.price_list) {
+            prices = String(product.price_list)
+                .split(',')
+                .map(p => Number(p))
+                .filter(n => !isNaN(n));
+        } else if (product.variants && product.variants.length) {
+            prices = product.variants.map(v => Number(v.price || 0)).filter(n => !isNaN(n));
+        } else if (product.price != null) {
+            prices = [Number(product.price)];
+        }
+        if (prices.length === 0) return '—';
+        prices.sort((a, b) => a - b);
+        const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
+        if (prices.length === 1) return fmt(prices[0]);
+        return `${fmt(prices[0])} - ${fmt(prices[prices.length - 1])}`;
+    }
+
+    async toggleVariantsDetails(e) {
+        const $btn = $(e.currentTarget);
+        const productId = $btn.data('id');
+        const $row = $btn.closest('tr');
+        const $next = $row.next('.product-variants-row');
+        if ($next.length) {
+            $next.remove();
+            $btn.find('i').removeClass('bi-chevron-up').addClass('bi-chevron-down');
+            return;
+        }
+        try {
+            const res = await $.get('actions/product_actions.php', { action: 'variants', product_id: productId });
+            if (!res.success) return;
+            const variants = res.data || [];
+            const detailsHtml = this.renderVariantsDetailsTable(variants);
+            const colspan = $('#productsTable thead th').length;
+            const detailsRow = `<tr class="product-variants-row"><td colspan="${colspan}">${detailsHtml}</td></tr>`;
+            $row.after(detailsRow);
+            $btn.find('i').removeClass('bi-chevron-down').addClass('bi-chevron-up');
+        } catch (err) {
+            console.error('toggleVariantsDetails error', err);
+        }
+    }
+
+    renderVariantsDetailsTable(variants) {
+        if (!variants.length) {
+            return '<div class="text-muted">No variants</div>';
+        }
+        let rows = '';
+        variants
+            .slice()
+            .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+            .forEach(v => {
+                const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(v.price || 0));
+                rows += `<tr><td>${v.size || ''}</td><td>${price}</td><td>${v.stock || 0}</td></tr>`;
+            });
+        return `
+            <div class="card card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Size</th><th>Price</th><th>Stock</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
     }
 
     // Image preview
@@ -620,25 +704,108 @@ class AdminCRUD {
     }
 
     bindPriceFormatting() {
-        // Live thousand separators for VND price input
-        $(document).on('input', '#price', function() {
-            const cursorPos = this.selectionStart;
+        // Live thousand separators for VND in inline variant price inputs
+        $(document).on('input', '.variant-price', function() {
             const raw = this.value.replace(/[^0-9]/g, '');
             if (raw.length === 0) {
                 this.value = '';
                 return;
             }
-            const formatted = new Intl.NumberFormat('vi-VN').format(parseInt(raw, 10));
+            const formatted = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(parseInt(raw, 10));
             this.value = formatted;
-            // Attempt to preserve caret near end (simple approach)
-            try { this.selectionEnd = this.value.length; } catch(e) {}
         });
-
-        // On focusout, ensure clean formatting
-        $(document).on('blur', '#price', function() {
+        $(document).on('blur', '.variant-price', function() {
             const raw = this.value.replace(/[^0-9]/g, '');
-            this.value = raw ? new Intl.NumberFormat('vi-VN').format(parseInt(raw, 10)) : '';
+            this.value = raw ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(parseInt(raw, 10)) : '';
         });
+    }
+
+    // Inline Variant management
+    async loadVariantsInline(productId) {
+        try {
+            const res = await $.get('actions/product_actions.php', { action: 'variants', product_id: productId });
+            if (!res.success) return;
+            const tbody = $('#variantsTableInline tbody');
+            tbody.empty();
+            (res.data || []).forEach(v => this.renderVariantRowInline(v));
+        } catch (err) {
+            console.error('loadVariantsInline error', err);
+        }
+    }
+
+    renderVariantRowInline(variant) {
+        const tbody = $('#variantsTableInline tbody');
+        const idAttr = variant.variant_id ? `data-id="${variant.variant_id}"` : '';
+        const priceDisplay = variant.price !== undefined && variant.price !== null
+            ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(Number(variant.price)))
+            : '';
+        const row = `
+            <tr class="variant-row" ${idAttr}>
+                <td><input type="text" class="form-control form-control-sm variant-size" value="${variant.size || ''}"></td>
+                <td><input type="text" class="form-control form-control-sm variant-price" value="${priceDisplay}" placeholder="0"></td>
+                <td><input type="number" class="form-control form-control-sm variant-stock" value="${variant.stock !== undefined ? variant.stock : ''}" min="0" placeholder="0"></td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-success variant-save-btn">Save</button>
+                    ${variant.variant_id ? `<button type="button" class="btn btn-sm btn-outline-danger variant-delete-btn">Delete</button>` : ''}
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    }
+
+    addVariantRowInline() {
+        const hasId = !!$('#productForm [name=product_id]').val();
+        if (!hasId) {
+            $('#variantsInlineHint').show();
+            return;
+        }
+        this.renderVariantRowInline({});
+    }
+
+    async saveVariantRowInline(e) {
+        const $row = $(e.currentTarget).closest('tr');
+        const variantId = $row.data('id');
+        const productId = $('#productForm [name=product_id]').val();
+        const size = ($row.find('.variant-size').val() || '').trim();
+        const priceRaw = ($row.find('.variant-price').val() || '').toString().replace(/[^0-9]/g, '');
+        const price = priceRaw.length ? parseInt(priceRaw, 10) : 0;
+        const stock = parseInt($row.find('.variant-stock').val() || '0', 10);
+        if (!size) { alert('Size is required'); return; }
+        try {
+            let res;
+            if (variantId) {
+                res = await $.post('actions/product_actions.php', { action: 'variant_update', variant_id: variantId, size, price, stock });
+            } else {
+                res = await $.post('actions/product_actions.php', { action: 'variant_create', product_id: productId, size, price, stock });
+            }
+            if (res.success) {
+                await this.loadVariantsInline(productId);
+                this.loadProducts();
+            } else {
+                alert(res.message || 'Failed to save variant');
+            }
+        } catch (err) {
+            console.error('saveVariantRowInline error', err);
+        }
+    }
+
+    async deleteVariantRowInline(e) {
+        const $row = $(e.currentTarget).closest('tr');
+        const variantId = $row.data('id');
+        const productId = $('#productForm [name=product_id]').val();
+        if (!variantId) return;
+        if (!confirm('Delete this variant?')) return;
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'variant_delete', variant_id: variantId });
+            if (res.success) {
+                await this.loadVariantsInline(productId);
+                this.loadProducts();
+            } else {
+                alert(res.message || 'Failed to delete variant');
+            }
+        } catch (err) {
+            console.error('deleteVariantRowInline error', err);
+        }
     }
 
     renderCategoriesTable(categories) {
