@@ -30,7 +30,7 @@ if (!$user) {
 }
 
 // Handle profile update
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['profile_update'])) {
     $full_name = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
@@ -68,6 +68,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Exception $e) {
             $error = 'Lỗi: ' . $e->getMessage();
         }
+    }
+}
+
+// Handle cancel order from profile orders tab
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
+    $cancelId = intval($_POST['cancel_order_id']);
+    if ($cancelId > 0) {
+        $appController->cancelUserOrder($_SESSION['user_id'], $cancelId);
+        header('Location: ' . BASE_URL . '/?page=profile#orders');
+        exit;
     }
 }
 
@@ -117,7 +127,7 @@ $userOrders = $appController->getUserOrders($_SESSION['user_id']);
                             <a href="#profile" class="user-profile__nav-link user-profile__nav-link--active" data-tab="profile">
                                 <i class="bi bi-person"></i> Thông tin cá nhân
                             </a>
-                            <a href="#orders" class="user-profile__nav-link" data-tab="orders">
+                            <a href="<?php echo BASE_URL; ?>/?page=orders" class="user-profile__nav-link">
                                 <i class="bi bi-bag"></i> Đơn hàng của tôi
                             </a>
                             <a href="#security" class="user-profile__nav-link" data-tab="security">
@@ -155,6 +165,7 @@ $userOrders = $appController->getUserOrders($_SESSION['user_id']);
                                 <?php endif; ?>
                                 
                                 <form method="POST" action="" class="user-profile__form" id="profileForm">
+                                    <input type="hidden" name="profile_update" value="1">
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="user-profile__form-group">
@@ -208,59 +219,7 @@ $userOrders = $appController->getUserOrders($_SESSION['user_id']);
                         </div>
                     </div>
 
-                    <!-- Orders Tab -->
-                    <div class="user-profile__tab-content" id="orders-tab" style="display: none;">
-                        <div class="user-profile__card">
-                            <div class="user-profile__card-header">
-                                <h2 class="user-profile__card-title">
-                                    <i class="bi bi-bag"></i> Đơn hàng của tôi
-                                </h2>
-                            </div>
-                            
-                            <div class="user-profile__card-body">
-                                <?php if (empty($userOrders)): ?>
-                                    <div class="user-profile__empty-state">
-                                        <i class="bi bi-bag-x"></i>
-                                        <h3>Chưa có đơn hàng nào</h3>
-                                        <p>Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm ngay!</p>
-                                        <a href="<?php echo BASE_URL; ?>" class="user-profile__button user-profile__button--primary">
-                                            <i class="bi bi-shop"></i> Mua sắm ngay
-                                        </a>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="user-profile__orders">
-                                        <?php foreach ($userOrders as $order): ?>
-                                            <div class="user-profile__order-item">
-                                                <div class="user-profile__order-header">
-                                                    <div class="user-profile__order-info">
-                                                        <h4 class="user-profile__order-id">Đơn hàng #<?php echo $order['order_id']; ?></h4>
-                                                        <p class="user-profile__order-date">
-                                                            <i class="bi bi-calendar"></i> 
-                                                            <?php echo date('d/m/Y H:i', strtotime($order['created_at'])); ?>
-                                                        </p>
-                                                    </div>
-                                                    <div class="user-profile__order-status">
-                                                        <span class="user-profile__status-badge user-profile__status-badge--<?php echo strtolower($order['status']); ?>">
-                                                            <?php echo $order['status']; ?>
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div class="user-profile__order-details">
-                                                    <p class="user-profile__order-total">
-                                                        <strong>Tổng tiền:</strong> <?php echo number_format($order['total_amount']); ?>₫
-                                                    </p>
-                                                    <a href="<?php echo BASE_URL; ?>/order-detail/<?php echo $order['order_id']; ?>" 
-                                                       class="user-profile__button user-profile__button--secondary">
-                                                        <i class="bi bi-eye"></i> Xem chi tiết
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
+                    
 
                     <!-- Security Tab -->
                     <div class="user-profile__tab-content" id="security-tab" style="display: none;">
