@@ -113,7 +113,7 @@ if (!$db) {
                             </table>
                         </div>
                         <button type="button" class="btn btn-primary btn-sm" id="addVariantRowInline">Add Variant</button>
-                        <div class="text-muted small mt-2" id="variantsInlineHint" style="display:none;">Save the product first to add variants.</div>
+                        <div class="text-muted small mt-2" id="variantsInlineHint" style="display:none;">Variants will be saved together with the product.</div>
                     </div>
                     
                     <div class="mb-3">
