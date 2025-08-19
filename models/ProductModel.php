@@ -99,6 +99,78 @@ class ProductModel {
         return $this->getAll($limit, $offset, $category_id);
     }
 
+    /**
+     * Get products by category with optional filters on variant price and size
+     * @param int $category_id
+     * @param int|null $min_price integer VND
+     * @param int|null $max_price integer VND
+     * @param array $sizes array of size strings to include
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public function getByCategoryWithFilters($category_id, $min_price = null, $max_price = null, $sizes = [], $limit = 16, $offset = 0) {
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        MIN(v.price) AS price,
+                        COALESCE(SUM(v.stock), 0) AS stock,
+                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
+                  FROM " . $this->table_name . " p 
+                  JOIN product_variants v ON v.product_id = p.product_id
+                  LEFT JOIN categories c ON p.category_id = c.category_id
+                  WHERE p.category_id = :category_id";
+        $params = [':category_id' => $category_id];
+
+        if ($min_price !== null) {
+            $query .= " AND v.price >= :min_price";
+            $params[':min_price'] = (int)$min_price;
+        }
+        if ($max_price !== null) {
+            $query .= " AND v.price <= :max_price";
+            $params[':max_price'] = (int)$max_price;
+        }
+        if (!empty($sizes)) {
+            // Build placeholders for sizes
+            $in = [];
+            foreach ($sizes as $idx => $sz) {
+                $ph = ':size' . $idx;
+                $in[] = $ph;
+                $params[$ph] = $sz;
+            }
+            $query .= " AND v.size IN (" . implode(',', $in) . ")";
+        }
+
+        $query .= " GROUP BY p.product_id ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
+        $stmt = $this->conn->prepare($query);
+        foreach ($params as $k => $v) {
+            if ($k === ':limit' || $k === ':offset') {
+                // handled below
+                continue;
+            }
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get distinct variant sizes available for a category
+     */
+    public function getSizesForCategory($category_id) {
+        $query = "SELECT DISTINCT v.size 
+                  FROM product_variants v 
+                  JOIN products p ON p.product_id = v.product_id 
+                  WHERE p.category_id = :cid 
+                  ORDER BY v.size ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':cid', $category_id);
+        $stmt->execute();
+        return array_map(function($r) { return $r['size']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     // Search products
     public function search($search_term, $limit = null, $offset = null) {
         $query = "SELECT p.*, c.category_name 
