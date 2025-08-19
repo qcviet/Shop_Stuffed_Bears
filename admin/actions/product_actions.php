@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../models/ProductModel.php';
+require_once __DIR__ . '/../../models/ProductVariantModel.php';
 require_once __DIR__ . '/../../models/CategoryModel.php';
 
 // Enable error reporting for debugging
@@ -14,6 +15,7 @@ $db = $database->getConnection();
 
 // Initialize models
 $productModel = $db ? new ProductModel($db) : null;
+$variantModel = $db ? new ProductVariantModel($db) : null;
 $categoryModel = $db ? new CategoryModel($db) : null;
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -34,14 +36,12 @@ try {
                 $category_id = $_POST['category_id'] ?? '';
                 $product_name = $_POST['product_name'] ?? '';
                 $description = $_POST['description'] ?? '';
-                $price = isset($_POST['price']) && $_POST['price'] !== '' ? (int)$_POST['price'] : 0;
-                $stock = $_POST['stock'] ?? 0;
                 
                 if (empty($product_name) || empty($category_id)) {
                     throw new Exception('Product name and category are required');
                 }
                 
-                if ($productModel->create($category_id, $product_name, $description, $price, $stock)) {
+                if ($productModel->create($category_id, $product_name, $description)) {
                     $newProductId = $db->lastInsertId();
                     // Multiple images support: accept image[]
                     if (!empty($_FILES['image']) && is_array($_FILES['image']['name'])) {
@@ -86,8 +86,6 @@ try {
                 $category_id = $_POST['category_id'] ?? '';
                 $product_name = $_POST['product_name'] ?? '';
                 $description = $_POST['description'] ?? '';
-                $price = isset($_POST['price']) && $_POST['price'] !== '' ? (int)$_POST['price'] : 0;
-                $stock = $_POST['stock'] ?? 0;
                 
                 if (empty($product_id) || empty($product_name) || empty($category_id)) {
                     throw new Exception('Product ID, name and category are required');
@@ -96,9 +94,7 @@ try {
                 $data = [
                     'category_id' => $category_id,
                     'product_name' => $product_name,
-                    'description' => $description,
-                    'price' => $price,
-                    'stock' => $stock
+                    'description' => $description
                 ];
                 
                 if ($productModel->update($product_id, $data)) {
@@ -165,10 +161,63 @@ try {
                     throw new Exception('Product ID is required');
                 }
                 
-                if ($productModel->delete($product_id)) {
+                try {
+                    $db->beginTransaction();
+
+                    // 1) Delete product images rows and files
+                    $stmt = $db->prepare("SELECT image_url FROM product_images WHERE product_id = :pid");
+                    $stmt->execute([':pid' => $product_id]);
+                    $images = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $stmt = $db->prepare("DELETE FROM product_images WHERE product_id = :pid");
+                    $stmt->execute([':pid' => $product_id]);
+                    // Try to remove files from disk (ignore failures)
+                    foreach ($images as $img) {
+                        if (!empty($img['image_url'])) {
+                            $path = __DIR__ . '/../../' . $img['image_url'];
+                            if (is_file($path)) { @unlink($path); }
+                        }
+                    }
+
+                    // 2) Handle variants and dependent rows
+                    $variantIds = [];
+                    if (isset($variantModel) && $variantModel) {
+                        $stmt = $db->prepare("SELECT variant_id FROM product_variants WHERE product_id = :pid");
+                        $stmt->execute([':pid' => $product_id]);
+                        $variantIds = array_map(function($r){ return $r['variant_id']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+
+                        if (count($variantIds) > 0) {
+                            // Check if any variants are referenced by order_items
+                            $placeholders = implode(',', array_fill(0, count($variantIds), '?'));
+                            $check = $db->prepare("SELECT COUNT(*) AS cnt FROM order_items WHERE variant_id IN ($placeholders)");
+                            $check->execute($variantIds);
+                            $cnt = (int)$check->fetch(PDO::FETCH_ASSOC)['cnt'];
+                            if ($cnt > 0) {
+                                // Abort deletion if there are historical orders
+                                $db->rollBack();
+                                throw new Exception('Cannot delete this product because some variants are used in existing orders.');
+                            }
+
+                            // Delete cart_items for these variants
+                            $delCart = $db->prepare("DELETE FROM cart_items WHERE variant_id IN ($placeholders)");
+                            $delCart->execute($variantIds);
+
+                            // Delete variants
+                            $delVar = $db->prepare("DELETE FROM product_variants WHERE product_id = :pid");
+                            $delVar->execute([':pid' => $product_id]);
+                        }
+                    }
+
+                    // 3) Finally delete product
+                    if (!$productModel->delete($product_id)) {
+                        $db->rollBack();
+                        throw new Exception('Failed to delete product');
+                    }
+
+                    $db->commit();
                     $response = ['success' => true, 'message' => 'Product deleted successfully'];
-                } else {
-                    throw new Exception('Failed to delete product');
+                } catch (Exception $ex) {
+                    if ($db->inTransaction()) { $db->rollBack(); }
+                    throw $ex;
                 }
             }
             break;
@@ -182,6 +231,14 @@ try {
             
             $product = $productModel->getById($product_id);
             if ($product) {
+                // include variants list
+                if (isset($variantModel) && $variantModel) {
+                    try {
+                        $product['variants'] = $variantModel->getByProductId($product_id);
+                    } catch (Exception $e) {
+                        $product['variants'] = [];
+                    }
+                }
                 $response = ['success' => true, 'data' => $product];
             } else {
                 throw new Exception('Product not found');
@@ -236,6 +293,60 @@ try {
                     $response = ['success' => true, 'message' => 'Image deleted'];
                 } else {
                     throw new Exception('Failed to delete image');
+                }
+            }
+            break;
+        
+        // Variant CRUD endpoints
+        case 'variants':
+            $product_id = $_GET['product_id'] ?? '';
+            if (empty($product_id)) { throw new Exception('Product ID is required'); }
+            if (!$variantModel) { throw new Exception('Variant model not available'); }
+            $variants = $variantModel->getByProductId($product_id);
+            $response = ['success' => true, 'data' => $variants];
+            break;
+
+        case 'variant_create':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                if (!$variantModel) { throw new Exception('Variant model not available'); }
+                $product_id = $_POST['product_id'] ?? '';
+                $size = trim($_POST['size'] ?? '');
+                $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : 0;
+                $stock = isset($_POST['stock']) ? (int)$_POST['stock'] : 0;
+                if (empty($product_id) || $size === '') { throw new Exception('Product ID and size are required'); }
+                if ($variantModel->create($product_id, $size, $price, $stock)) {
+                    $response = ['success' => true, 'message' => 'Variant created', 'variant_id' => $db->lastInsertId()];
+                } else {
+                    throw new Exception('Failed to create variant');
+                }
+            }
+            break;
+
+        case 'variant_update':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                if (!$variantModel) { throw new Exception('Variant model not available'); }
+                $variant_id = $_POST['variant_id'] ?? '';
+                $size = trim($_POST['size'] ?? '');
+                $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : 0;
+                $stock = isset($_POST['stock']) ? (int)$_POST['stock'] : 0;
+                if (empty($variant_id) || $size === '') { throw new Exception('Variant ID and size are required'); }
+                if ($variantModel->update($variant_id, $size, $price, $stock)) {
+                    $response = ['success' => true, 'message' => 'Variant updated'];
+                } else {
+                    throw new Exception('Failed to update variant');
+                }
+            }
+            break;
+
+        case 'variant_delete':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                if (!$variantModel) { throw new Exception('Variant model not available'); }
+                $variant_id = $_POST['variant_id'] ?? '';
+                if (empty($variant_id)) { throw new Exception('Variant ID is required'); }
+                if ($variantModel->delete($variant_id)) {
+                    $response = ['success' => true, 'message' => 'Variant deleted'];
+                } else {
+                    throw new Exception('Failed to delete variant');
                 }
             }
             break;
