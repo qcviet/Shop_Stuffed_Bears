@@ -36,14 +36,45 @@ try {
                 $category_id = $_POST['category_id'] ?? '';
                 $product_name = $_POST['product_name'] ?? '';
                 $description = $_POST['description'] ?? '';
-                
+                $variants_json = $_POST['variants_json'] ?? '[]';
+
                 if (empty($product_name) || empty($category_id)) {
                     throw new Exception('Product name and category are required');
                 }
-                
-                if ($productModel->create($category_id, $product_name, $description)) {
+
+                // Decode variants (expecting an array of {size, price, stock})
+                $variants = json_decode($variants_json, true);
+                if (!is_array($variants)) { $variants = []; }
+
+                // Require at least one variant upon creation
+                if (count($variants) === 0) {
+                    throw new Exception('Please add at least one variant (size, price, stock)');
+                }
+
+                try {
+                    $db->beginTransaction();
+
+                    if (!$productModel->create($category_id, $product_name, $description)) {
+                        throw new Exception('Failed to create product');
+                    }
+
                     $newProductId = $db->lastInsertId();
-                    // Multiple images support: accept image[]
+
+                    // Create variants first, so we can fail fast without writing image files
+                    if (!$variantModel) { throw new Exception('Variant model not available'); }
+                    foreach ($variants as $idx => $v) {
+                        $size = isset($v['size']) ? trim($v['size']) : '';
+                        $price = isset($v['price']) && $v['price'] !== '' ? (float)$v['price'] : 0;
+                        $stock = isset($v['stock']) ? (int)$v['stock'] : 0;
+                        if ($size === '') {
+                            throw new Exception('Variant at position ' . ($idx + 1) . ' is missing size');
+                        }
+                        if (!$variantModel->create($newProductId, $size, $price, $stock)) {
+                            throw new Exception('Failed to create variant at position ' . ($idx + 1));
+                        }
+                    }
+
+                    // Handle images
                     if (!empty($_FILES['image']) && is_array($_FILES['image']['name'])) {
                         $count = count($_FILES['image']['name']);
                         for ($i = 0; $i < $count; $i++) {
@@ -73,9 +104,12 @@ try {
                             $stmt->execute([':pid' => $newProductId, ':url' => $relPath]);
                         }
                     }
-                    $response = ['success' => true, 'message' => 'Product created successfully'];
-                } else {
-                    throw new Exception('Failed to create product');
+
+                    $db->commit();
+                    $response = ['success' => true, 'message' => 'Product created successfully', 'product_id' => $newProductId];
+                } catch (Exception $ex) {
+                    if ($db->inTransaction()) { $db->rollBack(); }
+                    throw $ex;
                 }
             }
             break;
