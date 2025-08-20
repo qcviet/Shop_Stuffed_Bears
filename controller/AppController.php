@@ -447,5 +447,29 @@ class AppController {
     public function getLastError() {
         return $this->db ? null : "Database connection failed";
     }
+
+    // Search suggestions for autocomplete
+    public function getSearchSuggestions($query) {
+        if (!$this->isConnected()) return false;
+        
+        try {
+            $suggestions = $this->productModel->searchProducts($query, '', 5, 0);
+            
+            // Format suggestions for autocomplete
+            $formattedSuggestions = [];
+            foreach ($suggestions as $product) {
+                $formattedSuggestions[] = [
+                    'product_id' => $product['product_id'],
+                    'product_name' => $product['product_name'],
+                    'category_name' => $product['category_name'],
+                    'price' => $product['price']
+                ];
+            }
+            
+            return $formattedSuggestions;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
 }
 ?> 
