@@ -28,6 +28,13 @@ class AdminCRUD {
         $(document).on('click', '.variant-delete-btn', (e) => this.deleteVariantRowInline(e));
         $(document).on('click', '.variant-remove-row-btn', (e) => this.removeVariantRowInline(e));
 
+        // Product-level color events
+        $(document).on('click', '#addColorBtn', () => this.addProductColor());
+        $(document).on('click', '.color-edit-btn', (e) => this.editProductColor(e));
+        $(document).on('click', '.color-save-btn', (e) => this.saveProductColor(e));
+        $(document).on('click', '.color-cancel-btn', (e) => this.cancelProductColor(e));
+        $(document).on('click', '.color-delete-btn', (e) => this.deleteProductColor(e));
+
         // Category events
         $(document).on('click', '.add-category-btn', () => this.showCategoryModal());
         $(document).on('click', '.edit-category-btn', (e) => this.editCategory(e));
@@ -61,6 +68,8 @@ class AdminCRUD {
     showProductModal(product = null) {
         const modal = $('#productModal');
         const form = $('#productForm');
+        // reset temp new-product colors holder each time modal opens
+        this._tempNewProductColors = [];
         
         if (product) {
             form.find('[name=product_id]').val(product.product_id);
@@ -95,6 +104,9 @@ class AdminCRUD {
             // Prefill with one empty variant row for convenience
             this.renderVariantRowInline({});
         }
+        // Load product colors
+        const pidColors = form.find('[name=product_id]').val();
+        this.loadProductColors(pidColors);
     }
 
     async editProduct(e) {
@@ -162,6 +174,17 @@ class AdminCRUD {
                 return;
             }
             formData.append('variants_json', JSON.stringify(variants));
+
+            // collect product colors for new product
+            let colors = Array.isArray(this._tempNewProductColors) ? this._tempNewProductColors.slice() : [];
+            if (colors.length === 0) {
+                // fallback: read from table
+                $('#colorsTableInline tbody tr').each(function() {
+                    const name = ($(this).find('.color-name-cell').text() || '').trim();
+                    if (name) colors.push(name);
+                });
+            }
+            formData.append('colors_json', JSON.stringify(colors));
         }
 
         try {
@@ -770,6 +793,143 @@ class AdminCRUD {
         }
     }
 
+    // Product-level Colors management
+    async loadProductColors(productId) {
+        const chips = $('#productColorsChips');
+        chips.empty();
+        if (!productId) {
+            // New product: use local temp list from input field if any later; currently empty
+            return;
+        }
+        try {
+            const res = await $.get('actions/product_actions.php', { action: 'product_colors', product_id: productId });
+            if (!res || !res.success) return;
+            (res.data || []).forEach(c => this.renderProductColorChip(c));
+        } catch (err) {
+            console.error('loadProductColors error', err);
+        }
+    }
+
+    renderProductColorChip(color) {
+        const wrap = $('#productColorsChips');
+        const idAttr = color && color.color_id ? `data-id="${color.color_id}"` : '';
+        const name = color && color.color_name ? color.color_name : '';
+        const chip = `
+            <span class="badge bg-light text-dark border d-inline-flex align-items-center color-chip" ${idAttr}>
+                <span class="color-name-cell">${this.escapeHtml(name)}</span>
+                <button type="button" class="btn btn-sm btn-link p-0 color-edit-btn" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button type="button" class="btn btn-sm btn-link p-0 text-danger color-delete-btn" title="Delete"><i class="bi bi-x"></i></button>
+            </span>
+        `;
+        wrap.append(chip);
+    }
+
+    escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    async addProductColor() {
+        const name = ($('#newColorName').val() || '').trim();
+        if (!name) { alert('Please enter a color name'); return; }
+        const productId = $('#productForm [name=product_id]').val();
+        if (!productId) {
+            // New product -> append to table and keep in hidden list
+            this.renderProductColorChip({ color_name: name });
+            const list = this._tempNewProductColors || [];
+            list.push(name);
+            this._tempNewProductColors = list;
+            $('#newColorName').val('');
+            return;
+        }
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'product_color_create', product_id: productId, color_name: name });
+            if (res && res.success) {
+                $('#newColorName').val('');
+                await this.loadProductColors(productId);
+            } else {
+                alert((res && res.message) || 'Failed to add color');
+            }
+        } catch (err) {
+            console.error('addProductColor error', err);
+        }
+    }
+
+    editProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const name = $chip.find('.color-name-cell').text().trim();
+        $chip.data('orig-name', name);
+        $chip.find('.color-name-cell').html(`<input type="text" class="form-control form-control-sm color-name-input" value="${name}" style="width:130px;">`);
+        $chip.find('.color-edit-btn').replaceWith('<button type="button" class="btn btn-sm btn-success color-save-btn p-0">Save</button>');
+        $chip.find('.color-delete-btn').replaceWith('<button type="button" class="btn btn-sm btn-outline-secondary color-cancel-btn p-0">Cancel</button>');
+    }
+
+    async saveProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const id = $chip.data('id');
+        const name = ($chip.find('.color-name-input').val() || '').trim();
+        if (!name) { alert('Color name is required'); return; }
+        const productId = $('#productForm [name=product_id]').val();
+        if (!id) {
+            // New product local row update
+            const idx = $chip.index();
+            if (this._tempNewProductColors && this._tempNewProductColors[idx] !== undefined) {
+                this._tempNewProductColors[idx] = name;
+            }
+            $chip.find('.color-name-cell').text(name);
+            $chip.find('.color-save-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 color-edit-btn" title="Edit"><i class="bi bi-pencil"></i></button>');
+            $chip.find('.color-cancel-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 text-danger color-delete-btn" title="Delete"><i class="bi bi-x"></i></button>');
+            return;
+        }
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'product_color_update', color_id: id, color_name: name });
+            if (res && res.success) {
+                await this.loadProductColors(productId);
+            } else {
+                alert((res && res.message) || 'Failed to update color');
+            }
+        } catch (err) {
+            console.error('saveProductColor error', err);
+        }
+    }
+
+    cancelProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const name = $chip.data('orig-name') || '';
+        $chip.find('.color-name-cell').text(name);
+        $chip.find('.color-save-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 color-edit-btn" title="Edit"><i class="bi bi-pencil"></i></button>');
+        $chip.find('.color-cancel-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 text-danger color-delete-btn" title="Delete"><i class="bi bi-x"></i></button>');
+    }
+
+    async deleteProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const id = $chip.data('id');
+        const productId = $('#productForm [name=product_id]').val();
+        if (!id) {
+            // Remove local row for new product
+            const idx = $chip.index();
+            if (Array.isArray(this._tempNewProductColors)) {
+                this._tempNewProductColors.splice(idx, 1);
+            }
+            $chip.remove();
+            return;
+        }
+        if (!confirm('Delete this color?')) return;
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'product_color_delete', color_id: id });
+            if (res && res.success) {
+                await this.loadProductColors(productId);
+            } else {
+                alert((res && res.message) || 'Failed to delete color');
+            }
+        } catch (err) {
+            console.error('deleteProductColor error', err);
+        }
+    }
     renderVariantRowInline(variant) {
         const tbody = $('#variantsTableInline tbody');
         const idAttr = variant.variant_id ? `data-id="${variant.variant_id}"` : '';
