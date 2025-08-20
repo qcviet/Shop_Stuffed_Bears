@@ -19,6 +19,7 @@ class AppController {
     private $productModel;
     private $orderModel;
     private $cartModel;
+    private static $hasOrderColorColumn = null;
 
     public function __construct() {
         $database = new Database();
@@ -281,13 +282,13 @@ class AppController {
         return $this->cartModel->getCartWithItems($user_id);
     }
 
-    public function addToCart($user_id, $variant_id, $quantity = 1) {
+    public function addToCart($user_id, $variant_id, $quantity = 1, $color_name = null) {
         if (!$this->isConnected()) return false;
         
         $cart = $this->cartModel->getOrCreateCart($user_id);
         if (!$cart) return false;
         
-        return $this->cartModel->addItem($cart['cart_id'], $variant_id, $quantity);
+        return $this->cartModel->addItem($cart['cart_id'], $variant_id, $quantity, $color_name);
     }
 
     public function updateCartItemQuantity($cart_item_id, $quantity) {
@@ -374,24 +375,30 @@ class AppController {
             $orderId = (int)$this->db->lastInsertId();
 
             // Insert order items and decrement stock
-            $insertItemStmt = $this->db->prepare("INSERT INTO order_items (order_id, variant_id, quantity, price) VALUES (:oid, :vid, :qty, :price)");
+            $insertSql = $this->hasOrderColorColumn()
+                ? "INSERT INTO order_items (order_id, variant_id, quantity, price, color_name) VALUES (:oid, :vid, :qty, :price, :color_name)"
+                : "INSERT INTO order_items (order_id, variant_id, quantity, price) VALUES (:oid, :vid, :qty, :price)";
+            $insertItemStmt = $this->db->prepare($insertSql);
             $decrementStockStmt = $this->db->prepare("UPDATE product_variants SET stock = stock - :qty WHERE variant_id = :vid");
 
             foreach ($cartItems as $item) {
                 $variantId = (int)$item['variant_id'];
                 $quantity = (int)$item['quantity'];
+                $colorName = isset($item['color_name']) ? $item['color_name'] : null;
 
                 // Fetch current price for accuracy
                 $priceStmt = $this->db->prepare("SELECT price FROM product_variants WHERE variant_id = :vid");
                 $priceStmt->execute([':vid' => $variantId]);
                 $price = (float)($priceStmt->fetchColumn());
 
-                $insertItemStmt->execute([
+                $params = [
                     ':oid' => $orderId,
                     ':vid' => $variantId,
                     ':qty' => $quantity,
                     ':price' => $price,
-                ]);
+                ];
+                if ($this->hasOrderColorColumn()) { $params[':color_name'] = $colorName; }
+                $insertItemStmt->execute($params);
 
                 $decrementStockStmt->execute([
                     ':qty' => $quantity,
@@ -410,6 +417,17 @@ class AppController {
             }
             return false;
         }
+    }
+
+    private function hasOrderColorColumn() {
+        if (self::$hasOrderColorColumn !== null) { return self::$hasOrderColorColumn; }
+        try {
+            $stmt = $this->db->query("SHOW COLUMNS FROM order_items LIKE 'color_name'");
+            self::$hasOrderColorColumn = $stmt && $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            self::$hasOrderColorColumn = false;
+        }
+        return self::$hasOrderColorColumn;
     }
 
     // Statistics Methods
