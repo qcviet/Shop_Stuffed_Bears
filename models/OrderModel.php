@@ -46,7 +46,7 @@ class OrderModel {
 
     // Get order by ID
     public function getById($order_id) {
-        $query = "SELECT o.*, u.username, u.full_name, u.email 
+        $query = "SELECT o.*, u.username, u.full_name, u.email, u.phone, u.address 
                   FROM " . $this->table_name . " o 
                   LEFT JOIN users u ON o.user_id = u.user_id 
                   WHERE o.order_id = :order_id";
@@ -58,8 +58,18 @@ class OrderModel {
 
     // Get order items with variant and product info
     public function getItemsByOrder($order_id) {
-        $query = "SELECT oi.order_item_id, oi.order_id, oi.variant_id, oi.quantity, oi.price,
-                         v.size, p.product_id, p.product_name
+        // Detect if color_name column exists
+        $hasColor = false;
+        try {
+            $chk = $this->conn->query("SHOW COLUMNS FROM order_items LIKE 'color_name'");
+            $hasColor = $chk && $chk->rowCount() > 0;
+        } catch (Exception $e) {
+            $hasColor = false;
+        }
+        $colorSelect = $hasColor ? "oi.color_name" : "NULL AS color_name";
+        $query = "SELECT oi.order_item_id, oi.order_id, oi.variant_id, oi.quantity, oi.price, $colorSelect,
+                         v.size, p.product_id, p.product_name,
+                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
                   FROM order_items oi
                   JOIN product_variants v ON oi.variant_id = v.variant_id
                   JOIN products p ON v.product_id = p.product_id
