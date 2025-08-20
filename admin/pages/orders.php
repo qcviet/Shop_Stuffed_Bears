@@ -120,9 +120,11 @@
                     <div class="col-md-6">
                         <div><strong>Customer:</strong> <span class="od-customer-name"></span></div>
                         <div><strong>Email:</strong> <span class="od-customer-email"></span></div>
-                        <div><strong>Date:</strong> <span class="od-order-date"></span></div>
+                        <div><strong>Phone:</strong> <span class="od-customer-phone"></span></div>
+                        <div><strong>Address:</strong> <span class="od-customer-address"></span></div>
                     </div>
                     <div class="col-md-6">
+                        <div><strong>Date:</strong> <span class="od-order-date"></span></div>
                         <div><strong>Status:</strong> <span class="od-status"></span></div>
                         <div><strong>Payment:</strong> <span class="od-payment"></span></div>
                         <div><strong>Total:</strong> <span class="od-total"></span></div>
@@ -136,8 +138,10 @@
                     <table class="table table-sm">
                         <thead>
                             <tr>
+                                <th style="width:70px">Image</th>
                                 <th>Product</th>
-                                <th>Variant</th>
+                                <th>Size</th>
+                                <th>Color</th>
                                 <th class="text-end">Price</th>
                                 <th class="text-end">Qty</th>
                                 <th class="text-end">Line Total</th>
