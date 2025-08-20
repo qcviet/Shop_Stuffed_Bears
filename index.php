@@ -148,6 +148,9 @@ if ($conn) {
         case 'order-detail':
             include 'views/users/order-detail.php';
             break;
+        case 'search':
+            include 'views/users/search.php';
+            break;
         default:
             include 'views/users/404.php';
             break;
