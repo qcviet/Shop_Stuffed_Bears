@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Checkout (mark paid = false for COD)
         $orderId = $app->checkoutCart($userId, $payment_method, false);
         if ($orderId) {
-            header('Location: ' . BASE_URL . '/?page=orders');
+            header('Location: ' . BASE_URL . '/?page=profile#orders');
             exit;
         } else {
             $error = 'Không thể tạo đơn hàng. Có thể do hết hàng.';
@@ -111,12 +111,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php else: ?>
                             <ul class="list-group list-group-flush">
                                 <?php foreach ($items as $it): if (!isset($it['cart_item_id'])) continue; ?>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
+                                    <?php 
+                                        $img = $it['image_url'] ?? 'assets/images/sp1.jpeg';
+                                        $src = (strpos($img, 'http') === 0) ? $img : (BASE_URL . '/' . $img);
+                                        $color = isset($it['color_name']) && $it['color_name'] !== '' ? $it['color_name'] : null;
+                                        $line = ((int)$it['quantity']) * (float)$it['price'];
+                                    ?>
+                                    <li class="list-group-item d-flex align-items-center">
+                                        <img src="<?php echo $src; ?>" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin-right:12px;" />
+                                        <div class="flex-grow-1">
                                             <div class="fw-semibold"><?php echo htmlspecialchars($it['product_name'] ?? ''); ?></div>
-                                            <small class="text-muted">Size: <?php echo htmlspecialchars($it['size'] ?? ''); ?> x <?php echo (int)$it['quantity']; ?></small>
+                                            <small class="text-muted">Kích thước: <?php echo htmlspecialchars($it['size'] ?? ''); ?><?php echo $color ? ' • Màu: ' . htmlspecialchars($color) : ''; ?> • SL: <?php echo (int)$it['quantity']; ?></small>
                                         </div>
-                                        <div><?php echo number_format(((int)$it['quantity'])* (float)$it['price'], 0, ',', '.'); ?> ₫</div>
+                                        <div class="ms-2 fw-semibold"><?php echo number_format($line, 0, ',', '.'); ?> ₫</div>
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
