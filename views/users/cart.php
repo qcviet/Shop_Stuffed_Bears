@@ -26,10 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'clear') {
         $app->clearCart($_SESSION['user_id']);
     } elseif ($action === 'add') {
-        // Add by variant
+        // Add by variant with optional color
         $variant_id = (int)($_POST['variant_id'] ?? 0);
         $qty = max(1, (int)($_POST['quantity'] ?? 1));
-        if ($variant_id > 0) { $app->addToCart($_SESSION['user_id'], $variant_id, $qty); }
+        $color_name = isset($_POST['color']) && $_POST['color'] !== '' ? $_POST['color'] : null;
+        if ($variant_id > 0) { $app->addToCart($_SESSION['user_id'], $variant_id, $qty, $color_name); }
     }
     if ($isAjax) {
         header('Content-Type: application/json');
@@ -88,7 +89,7 @@ $total = $app->getCartTotal($_SESSION['user_id']);
                                 </td>
                                 <td><?php echo htmlspecialchars($row['product_name'] ?? ''); ?></td>
                                 <td><?php echo htmlspecialchars($row['size'] ?? ''); ?></td>
-                                <td><?php echo !empty($row['color_names']) ? htmlspecialchars($row['color_names']) : '<span class="text-muted">—</span>'; ?></td>
+                                <td><?php echo isset($row['color_name']) && $row['color_name'] !== null && $row['color_name'] !== '' ? htmlspecialchars($row['color_name']) : '<span class="text-muted">—</span>'; ?></td>
                                 <td class="js-unit-price" data-price="<?php echo (float)$row['price']; ?>"><?php echo number_format((float)($row['price'] ?? 0), 0, ',', '.'); ?> ₫</td>
                                 <td style="max-width:180px;">
                                     <div class="d-inline-flex align-items-center gap-1 js-qty-form" data-item-id="<?php echo (int)$row['cart_item_id']; ?>">
