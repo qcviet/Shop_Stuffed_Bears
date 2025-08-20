@@ -9,9 +9,36 @@ $categoryModel = $db ? new CategoryModel($db) : null;
 $productModel = $db ? new ProductModel($db) : null;
 
 $categoryId = isset($_GET['cat']) ? (int)$_GET['cat'] : 0;
+$searchQuery = isset($_GET['search']) ? trim($_GET['search']) : '';
+$isProductSearch = isset($_GET['search_product']) && $_GET['search_product'] == '1';
+
+// If this is a product search, find similar products
+if ($isProductSearch && !empty($searchQuery)) {
+    $searchResults = $productModel ? $productModel->searchProducts($searchQuery, '', 10, 0) : [];
+    
+    if (!empty($searchResults)) {
+        // Get the most common category from search results
+        $categoryCounts = [];
+        foreach ($searchResults as $product) {
+            $catId = (int)$product['category_id'];
+            $categoryCounts[$catId] = ($categoryCounts[$catId] ?? 0) + 1;
+        }
+        
+        // Use the category with most matching products
+        $categoryId = array_keys($categoryCounts, max($categoryCounts))[0];
+        
+        // Store search results for display
+        $searchedProducts = $searchResults;
+    } else {
+        // If no similar products found, redirect to home page
+        header('Location: ' . BASE_URL);
+        exit;
+    }
+}
+
 if (!$categoryId) {
-	header('Location: ' . BASE_URL);
-	exit;
+    header('Location: ' . BASE_URL);
+    exit;
 }
 
 $category = $categoryModel ? $categoryModel->getById($categoryId) : null;
@@ -22,7 +49,19 @@ $max = isset($_GET['max']) && $_GET['max'] !== '' ? (int)preg_replace('/[^0-9]/'
 $sizes = isset($_GET['size']) ? (array)$_GET['size'] : [];
 
 $sizesAvailable = $productModel ? $productModel->getSizesForCategory($categoryId) : [];
-$products = $productModel ? $productModel->getByCategoryWithFilters($categoryId, $min, $max, $sizes, 16, 0) : [];
+
+// If this was a search, show search results, otherwise show category products
+if ($isProductSearch && !empty($searchQuery) && !empty($searchedProducts)) {
+    $products = $searchedProducts;
+} else {
+    $products = $productModel ? $productModel->getByCategoryWithFilters($categoryId, $min, $max, $sizes, 16, 0) : [];
+}
+
+// Get searched product IDs for highlighting
+$searchedProductIds = [];
+if ($isProductSearch && !empty($searchQuery) && !empty($searchedProducts)) {
+    $searchedProductIds = array_column($searchedProducts, 'product_id');
+}
 ?>
 
 <?php include __DIR__ . '/../includes/global.php'; ?>
@@ -74,12 +113,19 @@ $products = $productModel ? $productModel->getByCategoryWithFilters($categoryId,
 
 		<!-- Main content -->
 		<main class="col-md-9">
+			<?php if ($isProductSearch && !empty($searchQuery)): ?>
+				<div class="alert alert-info mb-3">
+					<i class="bi bi-search"></i>
+					<strong>Kết quả tìm kiếm:</strong> Tìm thấy <?php echo count($searchedProducts); ?> sản phẩm tương tự cho "<?php echo htmlspecialchars($searchQuery); ?>" trong danh mục <?php echo htmlspecialchars($category ? $category['category_name'] : ''); ?>
+					<br><small class="text-muted">Các sản phẩm được highlight là kết quả tìm kiếm tương tự</small>
+				</div>
+			<?php endif; ?>
 			<h5 class="mb-3"><?php echo htmlspecialchars($category ? $category['category_name'] : 'Danh mục'); ?></h5>
 			<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3 g-md-4">
 				<?php if (!empty($products)): ?>
 					<?php foreach ($products as $p): ?>
 						<div class="col">
-							<div class="d-block text-decoration-none card h-100 p-0">
+							<div class="d-block text-decoration-none card h-100 p-0 <?php echo (in_array($p['product_id'], $searchedProductIds)) ? 'border border-warning shadow-sm' : ''; ?>">
 								<a href="<?php echo BASE_URL . '?page=product-detail&id=' . (int)$p['product_id']; ?>">
 								<img src="<?php 
 									$img = !empty($p['image_url']) ? $p['image_url'] : 'assets/images/sp1.jpeg';
