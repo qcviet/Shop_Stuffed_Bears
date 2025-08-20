@@ -36,7 +36,7 @@ require_once __DIR__ . '/../../config/config.php';
                             </a>
                             <ul class="user-menu__dropdown">
                                 <li><a href="<?php echo BASE_URL; ?>?page=profile"><i class="bi bi-person"></i> Hồ sơ cá nhân</a></li>
-                                <li><a href="<?php echo BASE_URL; ?>?page=orders"><i class="bi bi-bag"></i> Đơn hàng của tôi</a></li>
+                                <li><a href="<?php echo BASE_URL; ?>?page=profile#orders"><i class="bi bi-bag"></i> Đơn hàng của tôi</a></li>
                                 <li><a href="<?php echo BASE_URL; ?>?page=logout"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a></li>
                             </ul>
                         </li>
