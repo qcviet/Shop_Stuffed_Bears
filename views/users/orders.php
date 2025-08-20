@@ -96,6 +96,7 @@ $orders = $app->getOrdersByUser($_SESSION['user_id']);
                             <p class="mb-0">Xem lịch sử đơn hàng và trạng thái giao hàng</p>
                         </div>
 
+                        <?php include __DIR__ . '/header.php'; ?>
                         <div class="p-4">
                             <?php if (empty($orders)): ?>
                                 <div class="text-center py-5">
@@ -191,6 +192,7 @@ $orders = $app->getOrdersByUser($_SESSION['user_id']);
                                 </a>
                             </div>
                         </div>
+                        <?php include __DIR__ . '/footer.php'; ?>
                     </div>
                 </div>
             </div>
