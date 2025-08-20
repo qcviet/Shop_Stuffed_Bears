@@ -77,3 +77,10 @@ CREATE TABLE IF NOT EXISTS cart_items (
     FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
 );
 
+
+CREATE TABLE IF NOT EXISTS product_colors (
+    color_id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    color_name VARCHAR(50) NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(product_id)
+);
