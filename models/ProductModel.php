@@ -173,37 +173,9 @@ class ProductModel {
         return array_map(function($r) { return $r['size']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    // Search products
+    // Search products with enhanced functionality
     public function search($search_term, $limit = null, $offset = null) {
-        $query = "SELECT p.*, c.category_name 
-                  FROM " . $this->table_name . " p 
-                  LEFT JOIN categories c ON p.category_id = c.category_id 
-                  WHERE p.product_name LIKE :search_term 
-                  OR p.description LIKE :search_term 
-                  OR c.category_name LIKE :search_term 
-                  ORDER BY p.created_at DESC";
-        
-        if ($limit) {
-            $query .= " LIMIT :limit";
-            if ($offset) {
-                $query .= " OFFSET :offset";
-            }
-        }
-        
-        $stmt = $this->conn->prepare($query);
-        
-        $search_pattern = "%$search_term%";
-        $stmt->bindParam(":search_term", $search_pattern);
-        
-        if ($limit) {
-            $stmt->bindParam(":limit", $limit, PDO::PARAM_INT);
-            if ($offset) {
-                $stmt->bindParam(":offset", $offset, PDO::PARAM_INT);
-            }
-        }
-        
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->searchProducts($search_term, '', $limit, $offset);
     }
 
     // Update product
@@ -348,5 +320,112 @@ class ProductModel {
         $stmt->bindParam(":image_id", $image_id);
         return $stmt->execute();
     }
+
+    // Search products with category filter
+    public function searchProducts($search_query = '', $category_id = '', $limit = null, $offset = null) {
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
+                        (SELECT v1.variant_id FROM product_variants v1 WHERE v1.product_id = p.product_id ORDER BY v1.price ASC LIMIT 1) AS min_variant_id,
+                        (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
+                        (SELECT GROUP_CONCAT(DISTINCT v3.price ORDER BY v3.price ASC SEPARATOR ',') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS price_list,
+                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image
+                  FROM " . $this->table_name . " p 
+                  LEFT JOIN categories c ON p.category_id = c.category_id
+                  WHERE 1=1";
+        
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " AND (
+                p.product_name LIKE :search_query 
+                OR p.product_name LIKE :search_start 
+                OR p.product_name LIKE :search_end 
+                OR p.product_name LIKE :search_words
+                OR p.description LIKE :search_query 
+                OR p.description LIKE :search_start 
+                OR p.description LIKE :search_end
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        // Add category filter
+        if (!empty($category_id)) {
+            $query .= " AND p.category_id = :category_id";
+            $params[':category_id'] = $category_id;
+        }
+        
+        $query .= " ORDER BY p.created_at DESC";
+        
+        // Add pagination
+        if ($limit) {
+            $query .= " LIMIT :limit";
+            $params[':limit'] = $limit;
+            if ($offset) {
+                $query .= " OFFSET :offset";
+                $params[':offset'] = $offset;
+            }
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        foreach ($params as $key => $value) {
+            if ($key == ':limit' || $key == ':offset') {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($key, $value);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Get search count for pagination
+    public function getSearchCount($search_query = '', $category_id = '') {
+        $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " p WHERE 1=1";
+        
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " AND (
+                p.product_name LIKE :search_query 
+                OR p.product_name LIKE :search_start 
+                OR p.product_name LIKE :search_end 
+                OR p.product_name LIKE :search_words
+                OR p.description LIKE :search_query 
+                OR p.description LIKE :search_start 
+                OR p.description LIKE :search_end
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        // Add category filter
+        if (!empty($category_id)) {
+            $query .= " AND p.category_id = :category_id";
+            $params[':category_id'] = $category_id;
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['count'];
+    }
+
+
 }
 ?> 
