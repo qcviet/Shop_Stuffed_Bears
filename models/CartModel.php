@@ -7,6 +7,7 @@
 class CartModel {
     private $conn;
     private $table_name = "cart";
+    private static $hasCartColorColumn = null;
 
     public function __construct($db) {
         $this->conn = $db;
@@ -30,11 +31,22 @@ class CartModel {
     }
 
     // Get cart with items (joined to variants and products)
+    private function hasCartColorColumn() {
+        if (self::$hasCartColorColumn !== null) { return self::$hasCartColorColumn; }
+        try {
+            $stmt = $this->conn->query("SHOW COLUMNS FROM cart_items LIKE 'color_name'");
+            self::$hasCartColorColumn = $stmt && $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            self::$hasCartColorColumn = false;
+        }
+        return self::$hasCartColorColumn;
+    }
+
     public function getCartWithItems($user_id) {
-        $query = "SELECT c.*, ci.cart_item_id, ci.variant_id, ci.quantity,
+        $colorSelect = $this->hasCartColorColumn() ? "ci.color_name" : "NULL AS color_name";
+        $query = "SELECT c.*, ci.cart_item_id, ci.variant_id, ci.quantity, $colorSelect,
                          p.product_id, p.product_name, v.size, v.price, v.stock, cat.category_name,
-                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url,
-                         (SELECT GROUP_CONCAT(pc.color_name ORDER BY pc.color_id SEPARATOR ', ') FROM product_colors pc WHERE pc.product_id = p.product_id) AS color_names
+                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
                   FROM " . $this->table_name . " c
                   LEFT JOIN cart_items ci ON c.cart_id = ci.cart_id
                   LEFT JOIN product_variants v ON ci.variant_id = v.variant_id
@@ -48,9 +60,9 @@ class CartModel {
     }
 
     // Add item to cart (by variant)
-    public function addItem($cart_id, $variant_id, $quantity = 1) {
-        // Check if item already exists in cart
-        $existing_item = $this->getCartItem($cart_id, $variant_id);
+    public function addItem($cart_id, $variant_id, $quantity = 1, $color_name = null) {
+        // Check if item (variant + color) already exists in cart
+        $existing_item = $this->getCartItem($cart_id, $variant_id, $color_name);
         
         if ($existing_item) {
             // Update quantity
@@ -58,23 +70,43 @@ class CartModel {
             return $this->updateItemQuantity($existing_item['cart_item_id'], $new_quantity);
         } else {
             // Add new item
-            $query = "INSERT INTO cart_items (cart_id, variant_id, quantity) VALUES (:cart_id, :variant_id, :quantity)";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(":cart_id", $cart_id);
-            $stmt->bindParam(":variant_id", $variant_id);
-            $stmt->bindParam(":quantity", $quantity);
-            return $stmt->execute();
+            if ($this->hasCartColorColumn()) {
+                $query = "INSERT INTO cart_items (cart_id, variant_id, quantity, color_name) VALUES (:cart_id, :variant_id, :quantity, :color_name)";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":cart_id", $cart_id);
+                $stmt->bindParam(":variant_id", $variant_id);
+                $stmt->bindParam(":quantity", $quantity);
+                $stmt->bindParam(":color_name", $color_name);
+                return $stmt->execute();
+            } else {
+                $query = "INSERT INTO cart_items (cart_id, variant_id, quantity) VALUES (:cart_id, :variant_id, :quantity)";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":cart_id", $cart_id);
+                $stmt->bindParam(":variant_id", $variant_id);
+                $stmt->bindParam(":quantity", $quantity);
+                return $stmt->execute();
+            }
         }
     }
 
     // Get cart item by variant
-    public function getCartItem($cart_id, $variant_id) {
-        $query = "SELECT * FROM cart_items WHERE cart_id = :cart_id AND variant_id = :variant_id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(":cart_id", $cart_id);
-        $stmt->bindParam(":variant_id", $variant_id);
-        $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+    public function getCartItem($cart_id, $variant_id, $color_name = null) {
+        if ($this->hasCartColorColumn()) {
+            $query = "SELECT * FROM cart_items WHERE cart_id = :cart_id AND variant_id = :variant_id AND ((:color_name IS NULL AND color_name IS NULL) OR color_name = :color_name)";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":cart_id", $cart_id);
+            $stmt->bindParam(":variant_id", $variant_id);
+            $stmt->bindParam(":color_name", $color_name);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } else {
+            $query = "SELECT * FROM cart_items WHERE cart_id = :cart_id AND variant_id = :variant_id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":cart_id", $cart_id);
+            $stmt->bindParam(":variant_id", $variant_id);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        }
     }
 
     // Update item quantity
