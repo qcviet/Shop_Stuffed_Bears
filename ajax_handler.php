@@ -7,6 +7,11 @@ require_once 'config/config.php';
 require_once 'config/database.php';
 require_once 'controller/AppController.php';
 
+// Ensure session is started for user-authenticated actions
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Initialize AppController
 $app = new AppController();
 
@@ -69,6 +74,25 @@ try {
             }
             break;
             
+        case 'get_order_detail':
+            if (!isset($_SESSION['user_id'])) {
+                echo json_encode(['success' => false, 'message' => 'Please login first']);
+                exit;
+            }
+            $order_id = isset($_POST['order_id']) ? (int)$_POST['order_id'] : 0;
+            if ($order_id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid order id']);
+                exit;
+            }
+            $order = $app->getOrderById($order_id);
+            if (!$order || (int)$order['user_id'] !== (int)$_SESSION['user_id']) {
+                echo json_encode(['success' => false, 'message' => 'Order not found']);
+                exit;
+            }
+            $items = $app->getOrderItems($order_id) ?: [];
+            echo json_encode(['success' => true, 'order' => $order, 'items' => $items]);
+            break;
+
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
             break;
