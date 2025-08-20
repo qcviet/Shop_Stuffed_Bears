@@ -68,6 +68,7 @@ $total = $app->getCartTotal($_SESSION['user_id']);
                             <th style="width:90px">Ảnh</th>
                             <th>Sản phẩm</th>
                             <th>Kích thước</th>
+                            <th>Màu sắc</th>
                             <th>Đơn giá</th>
                             <th>Số lượng</th>
                             <th>Tạm tính</th>
@@ -87,6 +88,7 @@ $total = $app->getCartTotal($_SESSION['user_id']);
                                 </td>
                                 <td><?php echo htmlspecialchars($row['product_name'] ?? ''); ?></td>
                                 <td><?php echo htmlspecialchars($row['size'] ?? ''); ?></td>
+                                <td><?php echo !empty($row['color_names']) ? htmlspecialchars($row['color_names']) : '<span class="text-muted">—</span>'; ?></td>
                                 <td class="js-unit-price" data-price="<?php echo (float)$row['price']; ?>"><?php echo number_format((float)($row['price'] ?? 0), 0, ',', '.'); ?> ₫</td>
                                 <td style="max-width:180px;">
                                     <div class="d-inline-flex align-items-center gap-1 js-qty-form" data-item-id="<?php echo (int)$row['cart_item_id']; ?>">
