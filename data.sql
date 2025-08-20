@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     variant_id INT NOT NULL,  
     quantity INT NOT NULL,
     price DECIMAL(10,2) NOT NULL, 
+    color_name VARCHAR(50) NULL,
     FOREIGN KEY (order_id) REFERENCES orders(order_id),
     FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
 );
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
     cart_id INT NOT NULL,
     variant_id INT NOT NULL,  
     quantity INT NOT NULL,
+    color_name VARCHAR(50) NULL,
     FOREIGN KEY (cart_id) REFERENCES cart(cart_id),
     FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
 );
