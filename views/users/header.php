@@ -12,9 +12,18 @@ require_once __DIR__ . '/../../config/config.php';
                     </a>
                 </div>
                 <div class="header-search w-100">
-                    <form class="search-form" action="" method="post">
-                        <input type="text" name="search" id="search" placeholder="Search for products...">
-                        <button type="submit"><i class="bi bi-search"></i></button>
+                    <form class="search-form" action="<?php echo BASE_URL; ?>" method="get">
+                        <div class="search-container">
+                            <div class="search-input-container">
+                                <input type="text" name="search" id="search" placeholder="Tìm kiếm sản phẩm..." 
+                                       value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>">
+                                <button type="submit" class="search-btn">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="hidden" name="page" value="category">
+                        <input type="hidden" name="search_product" value="1">
                     </form>
                 </div>
                 <ul class="header-menu__items d-flex flex-wrap justify-content-center align-items-center fw-bold mb-0">
@@ -40,3 +49,9 @@ require_once __DIR__ . '/../../config/config.php';
         </div>
     </div>
 </div>
+
+<!-- Include search functionality JavaScript -->
+<script>
+    const BASE_URL = '<?php echo BASE_URL; ?>';
+</script>
+<script src="<?php echo BASE_URL; ?>/assets/js/search.js"></script>
