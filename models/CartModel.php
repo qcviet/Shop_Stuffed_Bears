@@ -33,7 +33,8 @@ class CartModel {
     public function getCartWithItems($user_id) {
         $query = "SELECT c.*, ci.cart_item_id, ci.variant_id, ci.quantity,
                          p.product_id, p.product_name, v.size, v.price, v.stock, cat.category_name,
-                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
+                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url,
+                         (SELECT GROUP_CONCAT(pc.color_name ORDER BY pc.color_id SEPARATOR ', ') FROM product_colors pc WHERE pc.product_id = p.product_id) AS color_names
                   FROM " . $this->table_name . " c
                   LEFT JOIN cart_items ci ON c.cart_id = ci.cart_id
                   LEFT JOIN product_variants v ON ci.variant_id = v.variant_id
