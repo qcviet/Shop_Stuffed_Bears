@@ -21,6 +21,7 @@ UserProfile = {
         this.initAutoHideAlerts();
         this.initPasswordChange();
         this.initOrderActions();
+        this.initOrderDetailModal();
         this.initResponsiveNav();
     },
 
@@ -62,6 +63,100 @@ UserProfile = {
         
         // Handle initial tab based on URL hash
         this.handleInitialTab();
+    },
+
+    /**
+     * Initialize order detail modal interaction
+     */
+    initOrderDetailModal: function() {
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.js-view-order');
+            if (!btn) return;
+            const orderId = btn.getAttribute('data-order-id');
+            const baseUrl = document.body.getAttribute('data-base-url') || '';
+            const formData = new FormData();
+            formData.append('action', 'get_order_detail');
+            formData.append('order_id', String(orderId || ''));
+            fetch(baseUrl + '/ajax_handler.php', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(json => {
+                    if (json && json.success) { this.renderOrderModal(json); }
+                    else { this.showAlert((json && json.message) || 'Không tải được chi tiết đơn hàng', 'error'); }
+                })
+                .catch(() => this.showAlert('Lỗi kết nối. Vui lòng thử lại.', 'error'));
+        });
+    },
+
+    /**
+     * Render order details modal
+     */
+    renderOrderModal: function(data) {
+        const order = data.order || {};
+        const items = data.items || [];
+        const baseUrl = document.body.getAttribute('data-base-url') || '';
+        const rowsHtml = items.map(it => {
+            const img = it.image_url || 'assets/images/sp1.jpeg';
+            const src = img.startsWith('http') ? img : (baseUrl + '/' + img);
+            const price = Number(it.price || 0);
+            const qty = Number(it.quantity || 0);
+            const line = price * qty;
+            const color = (it.color_name && String(it.color_name).length) ? it.color_name : '—';
+            return (
+                '<tr>' +
+                '<td><img src="' + src + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;" /></td>' +
+                '<td>' + (it.product_name || '') + '</td>' +
+                '<td>' + (it.size || '') + '</td>' +
+                '<td>' + color + '</td>' +
+                '<td class="text-end">' + this.formatCurrency(price).replace('₫','') + '₫</td>' +
+                '<td class="text-end">' + qty + '</td>' +
+                '<td class="text-end">' + this.formatCurrency(line) + '</td>' +
+                '</tr>'
+            );
+        }).join('');
+
+        const html = '' +
+        '<div class="modal fade" id="orderDetailModal" tabindex="-1" aria-hidden="true">' +
+        '  <div class="modal-dialog modal-lg">' +
+        '    <div class="modal-content">' +
+        '      <div class="modal-header">' +
+        '        <h5 class="modal-title">Chi tiết đơn hàng #' + (order.order_id || '') + '</h5>' +
+        '        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>' +
+        '      </div>' +
+        '      <div class="modal-body">' +
+        '        <div class="row mb-3">' +
+        '          <div class="col-md-4"><strong>Ngày đặt:</strong> ' + (order.order_date || '') + '</div>' +
+        '          <div class="col-md-4"><strong>Trạng thái:</strong> ' + (order.status || '') + '</div>' +
+        '          <div class="col-md-4"><strong>Thanh toán:</strong> ' + (order.payment_status || '') + '</div>' +
+        '        </div>' +
+        '        <div class="table-responsive">' +
+        '          <table class="table table-bordered align-middle">' +
+        '            <thead><tr>' +
+        '              <th style="width:90px">Ảnh</th>' +
+        '              <th>Sản phẩm</th>' +
+        '              <th>Kích thước</th>' +
+        '              <th>Màu sắc</th>' +
+        '              <th class="text-end">Đơn giá</th>' +
+        '              <th class="text-end">Số lượng</th>' +
+        '              <th class="text-end">Thành tiền</th>' +
+        '            </tr></thead>' +
+        '            <tbody>' + rowsHtml + '</tbody>' +
+        '          </table>' +
+        '        </div>' +
+        '      </div>' +
+        '      <div class="modal-footer">' +
+        '        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>' +
+        '      </div>' +
+        '    </div>' +
+        '  </div>' +
+        '</div>';
+
+        const wrap = document.createElement('div');
+        wrap.innerHTML = html;
+        document.body.appendChild(wrap.firstChild);
+        const modalEl = document.getElementById('orderDetailModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        modalEl.addEventListener('hidden.bs.modal', () => { modalEl.remove(); });
     },
 
     /**
