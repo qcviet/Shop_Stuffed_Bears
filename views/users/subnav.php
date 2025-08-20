@@ -17,7 +17,7 @@
             <div class="subnav-menu__item"><a href="<?php echo BASE_URL; ?>/teddy-bears">Gấu Bông</a></div>
             <div class="subnav-menu__item"><a href="<?php echo BASE_URL; ?>/gifts"><i class="bi bi-gift-fill"></i> Quà Tặng</a></div>
             <div class="subnav-menu__item"><a href="<?php echo BASE_URL; ?>/cartoons">Hoạt Hình</a></div>
-            <div class="subnav-menu__item"><a href="<?php echo BASE_URL; ?>/accessories">Phụ Kiện & Gấu Bông</a></div>
+            <div class="subnav-menu__item"><a href="<?php echo BASE_URL; ?>/accessories">Phụ Kiện</a></div>
             <div class="subnav-menu__item"><a href="<?php echo BASE_URL; ?>/about">Về Gấu Yêu</a></div>
             <div class="subnav-menu__item"><a href="<?php echo BASE_URL; ?>/contact"><i class="bi bi-telephone-fill"></i> Liên Hệ</a></div>
         </div>
