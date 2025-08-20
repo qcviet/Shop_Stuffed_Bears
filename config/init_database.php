@@ -82,21 +82,21 @@ class DatabaseInitializer {
         }
         echo "✅ Sample categories inserted\n";
 
-        // Insert sample products
+        // Insert sample products (price/stock are derived from variants, so not stored here)
         $products = [
-            [1, 'Cute Teddy Bear', 'A soft and cuddly teddy bear perfect for children', 25.00, 15],
-            [1, 'Large Plush Bear', 'Big fluffy bear for decoration', 35.00, 8],
-            [2, 'Blind Box Mystery', 'Surprise collectible figure', 12.00, 20],
-            [2, 'Anime Blind Box', 'Japanese anime character figures', 15.00, 12],
-            [3, 'Gift Set Special', 'Beautiful gift package with multiple items', 45.00, 10],
-            [3, 'Birthday Gift Box', 'Perfect birthday present', 30.00, 18],
-            [4, 'Cartoon Character', 'Popular cartoon character plush', 20.00, 25],
-            [4, 'Anime Figure', 'High-quality anime figure', 28.00, 15],
-            [5, 'Keychain Set', 'Cute keychains collection', 8.00, 30],
-            [5, 'Phone Case', 'Decorative phone case', 12.00, 22]
+            [1, 'Cute Teddy Bear', 'A soft and cuddly teddy bear perfect for children'],
+            [1, 'Large Plush Bear', 'Big fluffy bear for decoration'],
+            [2, 'Blind Box Mystery', 'Surprise collectible figure'],
+            [2, 'Anime Blind Box', 'Japanese anime character figures'],
+            [3, 'Gift Set Special', 'Beautiful gift package with multiple items'],
+            [3, 'Birthday Gift Box', 'Perfect birthday present'],
+            [4, 'Cartoon Character', 'Popular cartoon character plush'],
+            [4, 'Anime Figure', 'High-quality anime figure'],
+            [5, 'Keychain Set', 'Cute keychains collection'],
+            [5, 'Phone Case', 'Decorative phone case']
         ];
 
-        $stmt = $pdo->prepare("INSERT IGNORE INTO products (category_id, product_name, description, price, stock) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT IGNORE INTO products (category_id, product_name, description) VALUES (?, ?, ?)");
         foreach ($products as $product) {
             $stmt->execute($product);
         }
