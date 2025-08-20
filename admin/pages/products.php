@@ -97,6 +97,16 @@ if (!$db) {
                     </div>
                     
                     <div class="mb-3">
+                        <label class="form-label mb-1">Colors</label>
+                        <div class="d-flex gap-2 align-items-center mb-2">
+                            <input type="text" class="form-control form-control-sm" id="newColorName" placeholder="Add a color (e.g. Red)" style="max-width: 220px;">
+                            <button type="button" class="btn btn-primary btn-sm" id="addColorBtn">Add</button>
+                        </div>
+                        <div id="productColorsChips" class="d-flex flex-wrap gap-2"></div>
+                        <table class="d-none"><tbody id="colorsTableInline"></tbody></table>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label mb-1">Variants</label>
                         <div class="text-muted small mb-2">Add size, price and stock per variant</div>
                         <div class="table-responsive">
