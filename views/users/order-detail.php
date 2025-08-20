@@ -38,6 +38,10 @@ $items = $app->getOrderItems($orderId) ?: [];
 	<link href="<?php echo CUSTOM_CSS; ?>" rel="stylesheet">
 </head>
 <body>
+	<?php /* Deprecated standalone order detail page; redirect to profile orders */ ?>
+	<script>
+		window.location.href = '<?php echo BASE_URL; ?>/?page=profile#orders';
+	</script>
 	<div class="container py-4">
 		<div class="row justify-content-center">
 			<div class="col-lg-10">
@@ -56,8 +60,10 @@ $items = $app->getOrderItems($orderId) ?: [];
 							<table class="table table-bordered align-middle">
 								<thead>
 									<tr>
+										<th style="width:90px">Ảnh</th>
 										<th>Sản phẩm</th>
-										<th>Phân loại</th>
+										<th>Kích thước</th>
+										<th>Màu sắc</th>
 										<th class="text-end">Đơn giá</th>
 										<th class="text-end">Số lượng</th>
 										<th class="text-end">Thành tiền</th>
@@ -66,8 +72,16 @@ $items = $app->getOrderItems($orderId) ?: [];
 								<tbody>
 									<?php $sum = 0; foreach ($items as $it): $line = (float)$it['price'] * (int)$it['quantity']; $sum += $line; ?>
 									<tr>
+										<td>
+											<?php 
+												$img = $it['image_url'] ?? 'assets/images/sp1.jpeg';
+												$src = (strpos($img, 'http') === 0) ? $img : (BASE_URL . '/' . $img);
+											?>
+											<img src="<?php echo $src; ?>" alt="" style="width:70px;height:70px;object-fit:cover;border-radius:6px;" />
+										</td>
 										<td><?php echo htmlspecialchars($it['product_name']); ?></td>
 										<td><?php echo htmlspecialchars($it['size']); ?></td>
+										<td><?php echo isset($it['color_name']) && $it['color_name'] !== '' ? htmlspecialchars($it['color_name']) : '<span class="text-muted">—</span>'; ?></td>
 										<td class="text-end"><?php echo number_format($it['price'], 0, ',', '.'); ?>₫</td>
 										<td class="text-end"><?php echo (int)$it['quantity']; ?></td>
 										<td class="text-end"><?php echo number_format($line, 0, ',', '.'); ?>₫</td>
@@ -93,6 +107,7 @@ $items = $app->getOrderItems($orderId) ?: [];
 			</div>
 		</div>
 	</div>
+	<?php include __DIR__ . '/footer.php'; ?>
 	<script src="<?php echo BOOTSTRAP_JS; ?>"></script>
 </body>
 </html>
