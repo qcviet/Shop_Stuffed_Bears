@@ -59,35 +59,43 @@ include __DIR__ . '/header.php';
             <div class="card">
                 <div class="card-body">
                     <h3 class="card-title mb-2"><?php echo htmlspecialchars($product['product_name'] ?? ''); ?></h3>
-                    <div class="text-danger h5 mb-3"><?php echo isset($product['price']) ? number_format((float)$product['price'], 0, ',', '.') . ' ₫' : ''; ?></div>
+                    <?php $defaultPrice = isset($variants[0]['price']) ? (float)$variants[0]['price'] : (float)($product['price'] ?? 0); ?>
+                    <div class="text-danger h5 mb-3"><span id="js-price" data-price="<?php echo htmlspecialchars((string)$defaultPrice); ?>"><?php echo number_format($defaultPrice, 0, ',', '.'); ?></span> ₫</div>
                     <div class="mb-3 text-muted">Danh mục: <?php echo htmlspecialchars($product['category_name'] ?? ''); ?> • Kho: <?php echo (int)($product['stock'] ?? 0); ?></div>
 
                     <?php if (!empty($variants)): ?>
                         <form method="post" action="<?php echo BASE_URL; ?>/?page=cart">
                             <input type="hidden" name="action" value="add" />
-                            <div class="mb-3">
-                                <label class="form-label">Kích thước</label>
-                                <select class="form-select" name="variant_id">
-                                    <?php foreach ($variants as $v): ?>
-                                        <option value="<?php echo (int)$v['variant_id']; ?>">
-                                            <?php echo htmlspecialchars($v['size']); ?> — <?php echo number_format((float)$v['price'], 0, ',', '.'); ?> ₫ (Kho: <?php echo (int)$v['stock']; ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
+                            <?php $defaultVariantId = isset($variants[0]['variant_id']) ? (int)$variants[0]['variant_id'] : 0; ?>
+                            <input type="hidden" name="variant_id" id="js-variant-id" value="<?php echo $defaultVariantId; ?>" />
+
                             <?php if (!empty($colors)): ?>
                                 <div class="mb-3">
                                     <label class="form-label">Màu sắc</label>
-                                    <div class="d-flex flex-wrap gap-3">
+                                    <div class="d-flex flex-wrap gap-2" id="js-color-wrap">
                                         <?php foreach ($colors as $idx => $c): ?>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="radio" name="color" id="color_<?php echo $idx; ?>" value="<?php echo htmlspecialchars($c); ?>" <?php echo $idx === 0 ? 'checked' : ''; ?> />
-                                                <label class="form-check-label" for="color_<?php echo $idx; ?>"><?php echo htmlspecialchars($c); ?></label>
-                                            </div>
+                                            <input type="radio" class="btn-check" name="color" id="color_<?php echo $idx; ?>" value="<?php echo htmlspecialchars($c); ?>" autocomplete="off" <?php echo $idx === 0 ? 'checked' : ''; ?>>
+                                            <label class="btn btn-outline-secondary py-2 px-3" for="color_<?php echo $idx; ?>" style="min-width:44px; text-transform:capitalize;"><?php echo htmlspecialchars($c); ?></label>
                                         <?php endforeach; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
+
+                            <div class="mb-3">
+                                <label class="form-label">Kích thước</label>
+                                <div class="d-flex flex-wrap gap-2" id="js-size-wrap">
+                                    <?php foreach ($variants as $i => $v): ?>
+                                        <?php $active = $i === 0 ? 'active' : ''; ?>
+                                        <button type="button" class="btn btn-outline-dark py-2 px-3 js-size-chip <?php echo $active; ?>" data-variant-id="<?php echo (int)$v['variant_id']; ?>" data-price="<?php echo htmlspecialchars((string)$v['price']); ?>" <?php echo ((int)$v['stock'] === 0) ? 'disabled' : ''; ?>>
+                                            <?php echo htmlspecialchars($v['size']); ?>
+                                            <?php if ((int)$v['stock'] === 0): ?>
+                                                <small class="text-muted">(Hết hàng)</small>
+                                            <?php endif; ?>
+                                        </button>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+
                             <div class="mb-3" style="max-width:200px;">
                                 <label class="form-label">Số lượng</label>
                                 <input type="number" name="quantity" min="1" value="1" class="form-control" />
@@ -116,8 +124,24 @@ include __DIR__ . '/header.php';
 <script>
 document.addEventListener('click', function(e){
     var thumb = e.target.closest('.js-thumb');
-    if (!thumb) return;
-    var main = document.querySelector('.js-main-image');
-    if (main) { main.src = thumb.src; }
+    if (thumb) {
+        var main = document.querySelector('.js-main-image');
+        if (main) { main.src = thumb.src; }
+        return;
+    }
+    var sizeBtn = e.target.closest('.js-size-chip');
+    if (sizeBtn) {
+        document.querySelectorAll('.js-size-chip').forEach(function(b){ b.classList.remove('active'); });
+        sizeBtn.classList.add('active');
+        var variantId = sizeBtn.getAttribute('data-variant-id');
+        var price = parseFloat(sizeBtn.getAttribute('data-price') || '0');
+        var priceEl = document.getElementById('js-price');
+        if (priceEl) {
+            try { priceEl.textContent = new Intl.NumberFormat('vi-VN').format(price); } catch(e) { priceEl.textContent = String(price); }
+            priceEl.setAttribute('data-price', String(price));
+        }
+        var hidden = document.getElementById('js-variant-id');
+        if (hidden) { hidden.value = variantId; }
+    }
 });
 </script>
