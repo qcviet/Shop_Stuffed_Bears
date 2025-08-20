@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../models/ProductModel.php';
 require_once __DIR__ . '/../../models/ProductVariantModel.php';
 require_once __DIR__ . '/../../models/CategoryModel.php';
+require_once __DIR__ . '/../../models/ColorModel.php';
 
 // Enable error reporting for debugging
 error_reporting(E_ALL);
@@ -17,6 +18,7 @@ $db = $database->getConnection();
 $productModel = $db ? new ProductModel($db) : null;
 $variantModel = $db ? new ProductVariantModel($db) : null;
 $categoryModel = $db ? new CategoryModel($db) : null;
+$colorModel = $db ? new ColorModel($db) : null;
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $response = ['success' => false, 'message' => ''];
@@ -37,6 +39,7 @@ try {
                 $product_name = $_POST['product_name'] ?? '';
                 $description = $_POST['description'] ?? '';
                 $variants_json = $_POST['variants_json'] ?? '[]';
+                $colors_json = $_POST['colors_json'] ?? '[]';
 
                 if (empty($product_name) || empty($category_id)) {
                     throw new Exception('Product name and category are required');
@@ -50,6 +53,9 @@ try {
                 if (count($variants) === 0) {
                     throw new Exception('Please add at least one variant (size, price, stock)');
                 }
+                // Decode colors (array of names)
+                $colors = json_decode($colors_json, true);
+                if (!is_array($colors)) { $colors = []; }
 
                 try {
                     $db->beginTransaction();
@@ -102,6 +108,17 @@ try {
                             $relPath = 'uploads/products/' . $safeName;
                             $stmt = $db->prepare("INSERT INTO product_images (product_id, image_url) VALUES (:pid, :url)");
                             $stmt->execute([':pid' => $newProductId, ':url' => $relPath]);
+                        }
+                    }
+
+                    // Insert product-level colors (independent of variants)
+                    if (count($colors) > 0) {
+                        $insColor = $db->prepare("INSERT INTO product_colors (product_id, color_name) VALUES (:pid, :name)");
+                        foreach ($colors as $cname) {
+                            $name = trim((string)$cname);
+                            if ($name !== '') {
+                                $insColor->execute([':pid' => $newProductId, ':name' => $name]);
+                            }
                         }
                     }
 
@@ -241,7 +258,11 @@ try {
                         }
                     }
 
-                    // 3) Finally delete product
+                    // 3) Delete product-level colors
+                    $delColors = $db->prepare("DELETE FROM product_colors WHERE product_id = :pid");
+                    $delColors->execute([':pid' => $product_id]);
+
+                    // 4) Finally delete product
                     if (!$productModel->delete($product_id)) {
                         $db->rollBack();
                         throw new Exception('Failed to delete product');
@@ -381,6 +402,57 @@ try {
                     $response = ['success' => true, 'message' => 'Variant deleted'];
                 } else {
                     throw new Exception('Failed to delete variant');
+                }
+            }
+            break;
+
+        // Product-level color endpoints (per product, independent of variants)
+        case 'product_colors':
+            $product_id = $_GET['product_id'] ?? '';
+            if (empty($product_id)) { throw new Exception('Product ID is required'); }
+            $stmt = $db->prepare("SELECT color_id, color_name FROM product_colors WHERE product_id = :pid ORDER BY color_id ASC");
+            $stmt->execute([':pid' => $product_id]);
+            $colors = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $response = ['success' => true, 'data' => $colors];
+            break;
+
+        case 'product_color_create':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $product_id = $_POST['product_id'] ?? '';
+                $name = trim($_POST['color_name'] ?? '');
+                if (empty($product_id) || $name === '') { throw new Exception('Product ID and color name are required'); }
+                $stmt = $db->prepare("INSERT INTO product_colors (product_id, color_name) VALUES (:pid, :name)");
+                if ($stmt->execute([':pid' => $product_id, ':name' => $name])) {
+                    $response = ['success' => true, 'message' => 'Color added', 'color_id' => $db->lastInsertId()];
+                } else {
+                    throw new Exception('Failed to add color');
+                }
+            }
+            break;
+
+        case 'product_color_update':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $id = $_POST['color_id'] ?? '';
+                $name = trim($_POST['color_name'] ?? '');
+                if (empty($id) || $name === '') { throw new Exception('Color ID and name are required'); }
+                $stmt = $db->prepare("UPDATE product_colors SET color_name = :name WHERE color_id = :id");
+                if ($stmt->execute([':name' => $name, ':id' => $id])) {
+                    $response = ['success' => true, 'message' => 'Color updated'];
+                } else {
+                    throw new Exception('Failed to update color');
+                }
+            }
+            break;
+
+        case 'product_color_delete':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $id = $_POST['color_id'] ?? '';
+                if (empty($id)) { throw new Exception('Color ID is required'); }
+                $stmt = $db->prepare("DELETE FROM product_colors WHERE color_id = :id");
+                if ($stmt->execute([':id' => $id])) {
+                    $response = ['success' => true, 'message' => 'Color deleted'];
+                } else {
+                    throw new Exception('Failed to delete color');
                 }
             }
             break;
