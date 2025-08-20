@@ -18,6 +18,15 @@ if (!$productId || !$productModel) {
 
 $product = $productModel->getById($productId);
 $variants = $variantModel ? $variantModel->getByProductId($productId) : [];
+// Load product-level colors
+$colors = [];
+try {
+    if ($db) {
+        $stmt = $db->prepare("SELECT color_name FROM product_colors WHERE product_id = :pid ORDER BY color_id ASC");
+        $stmt->execute([':pid' => $productId]);
+        $colors = array_map(function($r){ return $r['color_name']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+} catch (Exception $e) { $colors = []; }
 
 include __DIR__ . '/../includes/global.php';
 include __DIR__ . '/header.php';
@@ -32,13 +41,13 @@ include __DIR__ . '/header.php';
                         $mainImage = isset($product['images'][0]) ? $product['images'][0] : 'assets/images/sp1.jpeg';
                         $mainImage = (strpos($mainImage, 'http') === 0) ? $mainImage : (BASE_URL . '/' . $mainImage);
                     ?>
-                    <img src="<?php echo $mainImage; ?>" class="img-fluid" alt="<?php echo htmlspecialchars($product['product_name'] ?? ''); ?>">
+                    <img src="<?php echo $mainImage; ?>" class="img-fluid js-main-image" alt="<?php echo htmlspecialchars($product['product_name'] ?? ''); ?>">
                     <?php if (!empty($product['images'])): ?>
                         <div class="d-flex gap-2 mt-3 flex-wrap">
                             <?php foreach ($product['images'] as $img): 
                                 $src = (strpos($img, 'http') === 0) ? $img : (BASE_URL . '/' . $img);
                             ?>
-                                <img src="<?php echo $src; ?>" class="img-thumbnail" style="width:80px;height:80px;object-fit:cover;" />
+                                <img src="<?php echo $src; ?>" class="img-thumbnail js-thumb" style="width:80px;height:80px;object-fit:cover;cursor:pointer;" />
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
@@ -66,6 +75,19 @@ include __DIR__ . '/header.php';
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <?php if (!empty($colors)): ?>
+                                <div class="mb-3">
+                                    <label class="form-label">Màu sắc</label>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <?php foreach ($colors as $idx => $c): ?>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="color" id="color_<?php echo $idx; ?>" value="<?php echo htmlspecialchars($c); ?>" <?php echo $idx === 0 ? 'checked' : ''; ?> />
+                                                <label class="form-check-label" for="color_<?php echo $idx; ?>"><?php echo htmlspecialchars($c); ?></label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                             <div class="mb-3" style="max-width:200px;">
                                 <label class="form-label">Số lượng</label>
                                 <input type="number" name="quantity" min="1" value="1" class="form-control" />
@@ -90,3 +112,12 @@ include __DIR__ . '/header.php';
 </div>
 
 <?php include __DIR__ . '/footer.php'; ?>
+
+<script>
+document.addEventListener('click', function(e){
+    var thumb = e.target.closest('.js-thumb');
+    if (!thumb) return;
+    var main = document.querySelector('.js-main-image');
+    if (main) { main.src = thumb.src; }
+});
+</script>
