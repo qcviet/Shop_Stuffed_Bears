@@ -1121,6 +1121,8 @@ class AdminCRUD {
             modal.find('.od-order-id').text(`#${order.order_id}`);
             modal.find('.od-customer-name').text(order.full_name || order.username || 'N/A');
             modal.find('.od-customer-email').text(order.email || 'N/A');
+            modal.find('.od-customer-phone').text(order.phone || 'N/A');
+            modal.find('.od-customer-address').text(order.address || 'N/A');
             modal.find('.od-order-date').text(order.order_date ? new Date(order.order_date).toLocaleString() : 'N/A');
             modal.find('.od-status').text(order.status || '');
             modal.find('.od-payment').text(order.payment_status || '');
@@ -1134,10 +1136,15 @@ class AdminCRUD {
                 const price = Number(it.price || 0);
                 const qty = Number(it.quantity || 0);
                 const line = price * qty;
+                const colorVal = (it.color_name && String(it.color_name).length) ? it.color_name : '';
+                const base = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : (window.BASE_URL || '');
+                const img = it.image_url ? (it.image_url.startsWith('http') ? it.image_url : `${base}/${it.image_url}`) : `${base}/assets/images/sp1.jpeg`;
                 const tr = `
                     <tr>
-                        <td>${it.product_name || ''}</td>
-                        <td>${it.size || ''}</td>
+                        <td><img src="${img}" alt="" style="width:50px;height:50px;object-fit:cover;border-radius:6px;" /></td>
+                        <td>${this.escapeHtml(it.product_name || '')}</td>
+                        <td>${this.escapeHtml(it.size || '')}</td>
+                        <td>${this.escapeHtml(colorVal)}</td>
                         <td class="text-end">${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(price)}</td>
                         <td class="text-end">${qty}</td>
                         <td class="text-end">${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(line)}</td>
