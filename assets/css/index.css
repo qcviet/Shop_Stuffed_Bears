@@ -1,3 +1,4 @@
+
 @import url('variables.css');
 @import url('header.css');
 @import url('footer.css');
@@ -11,3 +12,5 @@
 @import url('single-gift-wrapping.css');
 @import url('single-washing.css');
 @import url('single-card.css');
+@import url('product.css');
+@import url('search.css');
