@@ -117,6 +117,7 @@ class ProductModel {
                         MIN(v.price) AS price,
                         (SELECT v1.variant_id FROM product_variants v1 WHERE v1.product_id = p.product_id ORDER BY v1.price ASC LIMIT 1) AS min_variant_id,
                         COALESCE(SUM(v.stock), 0) AS stock,
+                        (SELECT GROUP_CONCAT(DISTINCT CONCAT(v3.variant_id, ':', v3.size, ':', v3.price) ORDER BY v3.price ASC SEPARATOR '|') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS variants_summary,
                         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
                   FROM " . $this->table_name . " p 
                   JOIN product_variants v ON v.product_id = p.product_id
@@ -329,8 +330,8 @@ class ProductModel {
                         (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
                         (SELECT v1.variant_id FROM product_variants v1 WHERE v1.product_id = p.product_id ORDER BY v1.price ASC LIMIT 1) AS min_variant_id,
                         (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
-                        (SELECT GROUP_CONCAT(DISTINCT v3.price ORDER BY v3.price ASC SEPARATOR ',') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS price_list,
-                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image
+                        (SELECT GROUP_CONCAT(DISTINCT CONCAT(v3.variant_id, ':', v3.size, ':', v3.price) ORDER BY v3.price ASC SEPARATOR '|') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS variants_summary,
+                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url
                   FROM " . $this->table_name . " p 
                   LEFT JOIN categories c ON p.category_id = c.category_id
                   WHERE 1=1";
