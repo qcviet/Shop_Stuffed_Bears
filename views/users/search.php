@@ -38,183 +38,7 @@ $total_pages = ceil($total_results / $per_page);
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/variables.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/header.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/footer.css">
-    <style>
-        .search-results {
-            padding: 40px 0;
-            min-height: 60vh;
-        }
-        
-        .search-header {
-            background: #f8f9fa;
-            padding: 30px 0;
-            margin-bottom: 30px;
-        }
-        
-        .search-summary {
-            font-size: 18px;
-            color: #666;
-            margin-bottom: 20px;
-        }
-        
-        .search-filters {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-        
-        .filter-form {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        
-        .filter-form input {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        .filter-form button {
-            padding: 8px 20px;
-            background: var(--secondary-color);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .filter-form button:hover {
-            background: #0056b3;
-        }
-        
-        .product-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .product-card {
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        
-        .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-        }
-        
-        .product-image {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-        }
-        
-        .product-info {
-            padding: 15px;
-        }
-        
-        .product-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        
-        .product-price {
-            font-size: 18px;
-            font-weight: bold;
-            color: var(--secondary-color);
-            margin-bottom: 10px;
-        }
-        
-        .product-category {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 10px;
-        }
-        
-        .add-to-cart-btn {
-            width: 100%;
-            padding: 8px;
-            background: var(--secondary-color);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .add-to-cart-btn:hover {
-            background: #0056b3;
-        }
-        
-        .no-results {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-        
-        .no-results i {
-            font-size: 48px;
-            color: #ddd;
-            margin-bottom: 20px;
-        }
-        
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 30px;
-        }
-        
-        .pagination a,
-        .pagination span {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            text-decoration: none;
-            color: #333;
-            transition: all 0.3s;
-        }
-        
-        .pagination a:hover,
-        .pagination .current {
-            background: var(--secondary-color);
-            color: white;
-            border-color: var(--secondary-color);
-        }
-        
-        @media (max-width: 768px) {
-            .filter-form {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .product-grid {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                gap: 15px;
-            }
-            
-            .search-header {
-                padding: 20px 0;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/search.css">
 </head>
 <body>
     <?php include 'header.php'; ?>
@@ -231,14 +55,7 @@ $total_pages = ceil($total_results / $per_page);
     </div>
     
     <div class="container">
-        <div class="search-filters">
-            <form class="filter-form" method="get" action="<?php echo BASE_URL; ?>">
-                <input type="hidden" name="page" value="search">
-                <input type="text" name="search" placeholder="Tìm kiếm sản phẩm..." 
-                       value="<?php echo htmlspecialchars($search_query); ?>">
-                <button type="submit">Tìm kiếm</button>
-            </form>
-        </div>
+        <!-- Removed duplicate search bar: rely on main header search input -->
         
         <?php if (empty($search_results)): ?>
             <div class="no-results">
@@ -252,19 +69,38 @@ $total_pages = ceil($total_results / $per_page);
                 <?php foreach ($search_results as $product): ?>
                     <div class="product-card">
                         <img src="<?php 
-                            $img = $product['image'] ?? '';
+                            $img = $product['image_url'] ?? '';
+                            if (empty($img)) { $img = 'assets/images/sp1.jpeg'; }
                             $src = (strpos($img, 'http') === 0) ? $img : (BASE_URL . '/' . $img);
                             echo $src;
                         ?>" 
                              alt="<?php echo htmlspecialchars($product['product_name']); ?>" 
                              class="product-image">
                         <div class="product-info">
-                            <h3 class="product-title"><?php echo htmlspecialchars($product['product_name']); ?></h3>
+                            <a class="product-title-link" href="<?php echo BASE_URL . '?page=product-detail&id=' . (int)$product['product_id']; ?>">
+                                <h3 class="product-title"><?php echo htmlspecialchars($product['product_name']); ?></h3>
+                            </a>
                             <div class="product-category"><?php echo htmlspecialchars($product['category_name']); ?></div>
-                            <div class="product-price"><?php echo number_format($product['price'], 0, ',', '.'); ?> VNĐ</div>
-                            <button class="add-to-cart-btn" onclick="addToCart(<?php echo $product['product_id']; ?>)">
-                                <i class="bi bi-cart-plus"></i> Thêm vào giỏ
-                            </button>
+                            <?php 
+                                $variants = [];
+                                if (!empty($product['variants_summary'])) {
+                                    $parts = explode('|', $product['variants_summary']);
+                                    foreach ($parts as $part) {
+                                        list($vid, $size, $price) = explode(':', $part);
+                                        $variants[] = ['variant_id' => (int)$vid, 'size' => $size, 'price' => (float)$price];
+                                    }
+                                }
+                                $initialPrice = isset($variants[0]) ? (int)round($variants[0]['price']) : (isset($product['price']) ? (int)round($product['price']) : 0);
+                            ?>
+                            <div class="product-price js-price"><?php echo $initialPrice > 0 ? number_format($initialPrice, 0, ',', '.') . ' VNĐ' : '—'; ?></div>
+                            <?php if (!empty($variants)): ?>
+                            <div class="mb-2 d-flex flex-wrap gap-2">
+                                <?php foreach ($variants as $idx => $v): ?>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-size-chip<?php echo $idx === 0 ? ' active' : ''; ?>" data-variant-id="<?php echo (int)$v['variant_id']; ?>" data-price="<?php echo (int)$v['price']; ?>"><?php echo htmlspecialchars($v['size']); ?></button>
+                                <?php endforeach; ?>
+                            </div>
+                            <?php endif; ?>
+                            <input type="hidden" class="js-variant-id" value="<?php echo !empty($variants) ? (int)$variants[0]['variant_id'] : 0; ?>">
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -301,29 +137,6 @@ $total_pages = ceil($total_results / $per_page);
     <?php include 'footer.php'; ?>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function addToCart(productId) {
-            // Add to cart functionality
-            fetch('<?php echo BASE_URL; ?>/ajax_handler.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'action=add_to_cart&product_id=' + productId
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Đã thêm sản phẩm vào giỏ hàng!');
-                } else {
-                    alert('Có lỗi xảy ra: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Có lỗi xảy ra khi thêm vào giỏ hàng');
-            });
-        }
-    </script>
+    <script src="<?php echo BASE_URL; ?>/assets/js/search-page.js"></script>
 </body>
 </html>
