@@ -36,11 +36,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'address' => $address,
         ]);
 
-        // Checkout (mark paid = false for COD)
+        // Always create order as unpaid; payment gateways will update upon success
         $orderId = $app->checkoutCart($userId, $payment_method, false);
+        
         if ($orderId) {
-            header('Location: ' . BASE_URL . '/?page=profile#orders');
-            exit;
+            if ($payment_method === 'VNPAY') {
+                // Redirect to VNPay payment
+                header('Location: ' . BASE_URL . '/vnpay_php/vnpay_create_payment.php?order_id=' . $orderId);
+                exit;
+            } else {
+                // For COD and QR, go to profile
+                header('Location: ' . BASE_URL . '/?page=profile#orders');
+                exit;
+            }
         } else {
             $error = 'Không thể tạo đơn hàng. Có thể do hết hàng.';
         }
@@ -90,9 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <input class="form-check-input" type="radio" name="payment_method" id="pm_cod" value="COD" checked>
                                     <label class="form-check-label" for="pm_cod">Thanh toán khi nhận hàng (COD)</label>
                                 </div>
+                                
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="pm_qr" value="QR">
-                                    <label class="form-check-label" for="pm_qr">Thanh toán Online (Quét QR)</label>
+                                    <input class="form-check-input" type="radio" name="payment_method" id="pm_vnpay" value="VNPAY">
+                                    <label class="form-check-label" for="pm_vnpay">Thanh toán Online (VNPay)</label>
                                 </div>
                             </div>
                             <button class="btn btn-primary" type="submit">Đặt hàng</button>
@@ -141,22 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div id="orderTotal" data-total="<?php echo (float)$total; ?>"><?php echo number_format((float)$total, 0, ',', '.'); ?> ₫</div>
                             </div>
 
-                            <div id="qrSection" class="mt-3" style="display:none;">
-                                <div class="border rounded p-3">
-                                    <div class="fw-semibold mb-2">Quét QR để thanh toán</div>
-                                    <?php 
-                                        $qrText = rawurlencode('PAY|Shop Gau Yeu|User=' . $userId . '|Amount=' . (int)$total . '|Note=Thanh toan don hang');
-                                        $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' . $qrText;
-                                    ?>
-                                    <div class="text-center">
-                                        <img id="qrImage" src="<?php echo $qrUrl; ?>" alt="QR thanh toán" width="220" height="220" />
-                                    </div>
-                                    <div class="small text-muted mt-2">
-                                        - Nội dung chuyển khoản: <strong>Order-<?php echo (int)$userId; ?></strong><br/>
-                                        - Số tiền: <strong id="qrAmountText"><?php echo number_format((float)$total, 0, ',', '.'); ?> ₫</strong>
-                                    </div>
-                                </div>
-                            </div>
+                            
                         <?php endif; ?>
                     </div>
                 </div>
@@ -170,32 +164,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
     (function(){
         var pmCod = document.getElementById('pm_cod');
-        var pmQr = document.getElementById('pm_qr');
-        var qrSection = document.getElementById('qrSection');
-        var qrImg = document.getElementById('qrImage');
-        var totalEl = document.getElementById('orderTotal');
-        var amountText = document.getElementById('qrAmountText');
-        function toggle(){
-            if (!pmCod || !pmQr) return;
-            var useQr = pmQr.checked;
-            qrSection.style.display = useQr ? 'block' : 'none';
-        }
-        function updateQr(){
-            if (!qrImg || !totalEl) return;
-            var total = parseInt(totalEl.getAttribute('data-total') || '0', 10);
-            var txt = encodeURIComponent('PAY|Shop Gau Yeu|User=<?php echo (int)$userId; ?>|Amount=' + total + '|Note=Thanh toan don hang');
-            var url = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + txt;
-            qrImg.src = url;
-            if (amountText) { amountText.textContent = new Intl.NumberFormat('vi-VN').format(total) + ' ₫'; }
-        }
+        var pmVnpay = document.getElementById('pm_vnpay');
+        function toggle(){}
         document.addEventListener('change', function(e){
-            if (e.target && (e.target.id === 'pm_cod' || e.target.id === 'pm_qr')){
+            if (e.target && (e.target.id === 'pm_cod' || e.target.id === 'pm_vnpay')){
                 toggle();
-                if (pmQr && pmQr.checked) updateQr();
             }
         });
-        // Initialize
-        toggle();
     })();
     </script>
     </body>
