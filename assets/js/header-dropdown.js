@@ -94,4 +94,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+    
+    // Mobile drawer controls
+    const hamburger = document.querySelector('.hamburger');
+    const drawer = document.querySelector('.mobile-drawer');
+    const closeBtn = document.querySelector('.drawer-close');
+    const backdrop = document.querySelector('.mobile-drawer__backdrop');
+    function openDrawer(){ if (drawer){ drawer.classList.add('open'); document.body.style.overflow='hidden'; if (hamburger) hamburger.setAttribute('aria-expanded','true'); } }
+    function closeDrawer(){ if (drawer){ drawer.classList.remove('open'); document.body.style.overflow=''; if (hamburger) hamburger.setAttribute('aria-expanded','false'); } }
+    if (hamburger) hamburger.addEventListener('click', openDrawer);
+    if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+    if (backdrop) backdrop.addEventListener('click', closeDrawer);
 }); 
