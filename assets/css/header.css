@@ -1,3 +1,4 @@
+.no-horizontal-scroll, html, body { overflow-x: hidden; }
 .header{
   width: 100%;
   background-color: var(--white);
@@ -14,6 +15,9 @@
 .header-menu__items {
   position: relative;
   overflow: visible;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .header-search{
@@ -81,12 +85,18 @@
   background: #0056b3;
 }
 
-.header-menu__items-link a,ul {
+.header-menu__items-link a {
   padding: 0px 10px;
   text-decoration: none;
-  list-style-type: none;
+  list-style: none;
   color: black;
   display: block;
+}
+
+.header-menu__items ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
 }
 
 .bi-bag-heart
@@ -284,6 +294,7 @@
     max-width: 100%;
     order: 2;
   }
+  .header-logo { display: none; }
   
   .search-container {
     border-radius: 15px;
@@ -298,6 +309,7 @@
     width: 100%;
     justify-content: space-around;
   }
+  .subnav { display: none; }
   
   .header-menu__items-link-button {
     width: auto;
@@ -449,4 +461,16 @@
 .search-btn {
   transition: all 0.3s ease;
 }
+
+/* Hamburger */
+.hamburger { background: none; border: none; padding: 8px; display: inline-flex; flex-direction: column; gap: 4px; position: relative; z-index: 2100; }
+.hamburger span { display: block; width: 22px; height: 2px; background: #333; }
+
+/* Mobile Drawer */
+.mobile-drawer { position: fixed; inset: 0; pointer-events: none; z-index: 2000; }
+.mobile-drawer__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.3); opacity: 0; transition: opacity .2s; }
+.mobile-drawer__content { position: absolute; top: 0; bottom: 0; left: 0; width: 80%; max-width: 320px; background: #fff; transform: translateX(-100%); transition: transform .25s ease; overflow-y: auto; will-change: transform; }
+.mobile-drawer.open { pointer-events: auto; }
+.mobile-drawer.open .mobile-drawer__backdrop { opacity: 1; }
+.mobile-drawer.open .mobile-drawer__content { transform: translateX(0); }
 
