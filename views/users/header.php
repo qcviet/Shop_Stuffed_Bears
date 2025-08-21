@@ -6,12 +6,15 @@ require_once __DIR__ . '/../../config/config.php';
     <div class="container">
         <div class="row">
             <nav class="header-navbar d-flex flex-column flex-md-row justify-content-between align-items-center">
+                <button class="hamburger d-md-none" aria-label="Open menu" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
                 <div class="header-logo">
                     <a href="<?php echo BASE_URL; ?>" >
                         <img src="<?php echo BASE_URL . '/assets/images/logo.png'; ?>" alt="Shop Gau Yeu Logo" class="img-fluid">
                     </a>
                 </div>
-                <div class="header-search w-100">
+                <div class="header-search">
                     <form class="search-form" action="<?php echo BASE_URL; ?>" method="get">
                         <div class="search-container">
                             <div class="search-input-container">
@@ -22,8 +25,7 @@ require_once __DIR__ . '/../../config/config.php';
                                 </button>
                             </div>
                         </div>
-                        <input type="hidden" name="page" value="category">
-                        <input type="hidden" name="search_product" value="1">
+                        <input type="hidden" name="page" value="search">
                     </form>
                 </div>
                 <ul class="header-menu__items d-flex flex-wrap justify-content-center align-items-center fw-bold mb-0">
@@ -46,12 +48,26 @@ require_once __DIR__ . '/../../config/config.php';
                     <?php endif; ?>
                 </ul>
             </nav>
+            <div class="mobile-drawer d-md-none">
+                <div class="mobile-drawer__content">
+                    <div class="mobile-drawer__header d-flex align-items-center justify-content-between">
+                        <strong>Menu</strong>
+                        <button class="drawer-close" aria-label="Close menu">&times;</button>
+                    </div>
+                    <div class="mobile-drawer__body">
+                        <?php include __DIR__ . '/subnav.php'; ?>
+                    </div>
+                </div>
+                <div class="mobile-drawer__backdrop"></div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Include search functionality JavaScript -->
+<!-- Include header/search/product JS -->
 <script>
     const BASE_URL = '<?php echo BASE_URL; ?>';
 </script>
+<script src="<?php echo BASE_URL; ?>/assets/js/header-dropdown.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/js/user-product.js"></script>
 <script src="<?php echo BASE_URL; ?>/assets/js/search.js"></script>
