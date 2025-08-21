@@ -100,9 +100,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const drawer = document.querySelector('.mobile-drawer');
     const closeBtn = document.querySelector('.drawer-close');
     const backdrop = document.querySelector('.mobile-drawer__backdrop');
+    const drawerLinks = document.querySelectorAll('.mobile-drawer a');
     function openDrawer(){ if (drawer){ drawer.classList.add('open'); document.body.style.overflow='hidden'; if (hamburger) hamburger.setAttribute('aria-expanded','true'); } }
     function closeDrawer(){ if (drawer){ drawer.classList.remove('open'); document.body.style.overflow=''; if (hamburger) hamburger.setAttribute('aria-expanded','false'); } }
     if (hamburger) hamburger.addEventListener('click', openDrawer);
     if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
     if (backdrop) backdrop.addEventListener('click', closeDrawer);
+    // Close drawer on any link click
+    drawerLinks.forEach(l => l.addEventListener('click', closeDrawer));
 }); 
