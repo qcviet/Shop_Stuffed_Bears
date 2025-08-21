@@ -110,25 +110,32 @@ if ($productModel) {
                             }
                         }
                     }
+                    // Choose the variant with the smallest price as default active
+                    $minIdx = 0; $minPrice = null;
+                    if (!empty($variants)) {
+                        foreach ($variants as $idx => $v) {
+                            $vp = isset($v['price']) ? (float)$v['price'] : 0;
+                            if ($minPrice === null || $vp < $minPrice) { $minPrice = $vp; $minIdx = $idx; }
+                        }
+                    }
+                    // Determine display price: prefer min variant price if variants exist, else base product price
+                    $displayPriceValue = !empty($variants) ? (float)$variants[$minIdx]['price'] : $productPriceValue;
+                    $displayPrice = $displayPriceValue > 0 ? number_format($displayPriceValue, 0, ',', '.') . 'đ' : '';
                 ?>
                 <div class="col-6 col-md-3">
                     <div class="new-topic-product h-100">
                         <div class="new-topic-product-card text-center">
-                            <img src="<?php echo $productImage; ?>" alt="<?php echo htmlspecialchars($productName); ?>">
-                            <h2 class="new-topic-product-card-title"><?php echo htmlspecialchars($productName); ?></h2>
-                            <?php if ($productPrice): ?>
-                                <p class="new-topic-product-card-price js-price" data-price="<?php echo (int)$productPriceValue; ?>"><?php echo $productPrice; ?></p>
-                            <?php endif; ?>
+                            <?php $detailLink = ($product && isset($product['product_id'])) ? (BASE_URL . '?page=product-detail&id=' . (int)$product['product_id']) : '#'; ?>
+                            <a href="<?php echo $detailLink; ?>">
+                                <img src="<?php echo $productImage; ?>" alt="<?php echo htmlspecialchars($productName); ?>">
+                            </a>
+                            <a class="product-title-link d-inline-block mt-2" href="<?php echo $detailLink; ?>">
+                                <h2 class="new-topic-product-card-title" style="font-size:16px;font-weight:600;margin:0;"><?php echo htmlspecialchars($productName); ?></h2>
+                            </a>
+                            <p class="new-topic-product-card-price js-price" data-price="<?php echo (int)$displayPriceValue; ?>"><?php echo $displayPrice; ?></p>
                             <?php if (!empty($variants)): ?>
-                                <div class="new-topic-product-sizes d-flex flex-wrap justify-content-center gap-1">
-                                    <?php 
-                                        // Choose the variant with the smallest price as default active
-                                        $minIdx = 0; $minPrice = null;
-                                        foreach ($variants as $idx => $v) {
-                                            $vp = isset($v['price']) ? (float)$v['price'] : 0;
-                                            if ($minPrice === null || $vp < $minPrice) { $minPrice = $vp; $minIdx = $idx; }
-                                        }
-                                    ?>
+                                <div class="new-topic-product-sizes d-flex flex-wrap justify-content-center gap-2">
+                                    <?php ?>
                                     <?php foreach ($variants as $idx => $v): 
                                         $sz = $v['size'];
                                         $vp = isset($v['price']) ? (float)$v['price'] : 0;
@@ -136,17 +143,10 @@ if ($productModel) {
                                         $label = $sz;
                                         if ($unit && is_numeric($sz)) { $label = $sz . $unit; }
                                     ?>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm js-variant-option <?php echo $isActive ? 'active' : ''; ?>" data-price="<?php echo (int)$vp; ?>" data-variant-id="<?php echo (int)$v['variant_id']; ?>"><?php echo htmlspecialchars($label); ?></button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-size-chip <?php echo $isActive ? 'active' : ''; ?>" data-price="<?php echo (int)$vp; ?>" data-variant-id="<?php echo (int)$v['variant_id']; ?>"><?php echo htmlspecialchars($label); ?></button>
                                     <?php endforeach; ?>
                                 </div>
-                                <form method="post" action="<?php echo BASE_URL; ?>/?page=cart" class="mt-2" data-role="quick-add">
-                                    <input type="hidden" name="action" value="add" />
-                                    <input type="hidden" name="variant_id" class="js-variant-id" value="<?php echo (int)$variants[$minIdx]['variant_id']; ?>" />
-                                    <input type="hidden" name="quantity" value="1" />
-                                    <button class="btn btn-primary btn-sm" type="submit">
-                                        <i class="bi bi-bag-plus"></i> Thêm vào giỏ
-                                    </button>
-                                </form>
+                                <input type="hidden" class="js-variant-id" value="<?php echo (int)$variants[$minIdx]['variant_id']; ?>" />
                             <?php endif; ?>
                         </div>
                     </div>
@@ -154,34 +154,7 @@ if ($productModel) {
                 <?php endfor; ?>
             </div>
         </div>
-        <script>
-        (function(){
-            function formatVnd(value){
-                try { return new Intl.NumberFormat('vi-VN').format(value) + 'đ'; }
-                catch(e){ return (value||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'đ'; }
-            }
-            document.addEventListener('click', function(e){
-                var btn = e.target.closest('.js-variant-option');
-                if (!btn) return;
-                var card = btn.closest('.new-topic-product-card');
-                if (!card) return;
-                card.querySelectorAll('.js-variant-option').forEach(function(b){ b.classList.remove('active'); });
-                btn.classList.add('active');
-                var priceEl = card.querySelector('.js-price');
-                if (priceEl) {
-                    var p = parseInt(btn.getAttribute('data-price') || '0', 10);
-                    priceEl.textContent = formatVnd(p);
-                    priceEl.setAttribute('data-price', p.toString());
-                }
-                var form = card.querySelector('form[data-role="quick-add"]');
-                if (form) {
-                    var vid = btn.getAttribute('data-variant-id');
-                    var input = form.querySelector('.js-variant-id');
-                    if (vid && input) { input.value = vid; }
-                }
-            });
-        })();
-        </script>
+        <script src="<?php echo BASE_URL . '/assets/js/new-topic.js'; ?>"></script>
         <div class="new-topic-button-all mt-3">
             <a href="#">Xem thêm</a>
         </div>
