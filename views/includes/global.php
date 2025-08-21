@@ -33,7 +33,6 @@ if (session_status() === PHP_SESSION_NONE) {
     <script src="<?php echo JQUERY_JS; ?>"></script>
     <script src="<?php echo BOOTSTRAP_JS; ?>"></script>
     <script src="<?php echo CUSTOM_JS; ?>"></script>
-    <script src="<?php echo BASE_URL; ?>/assets/js/header-dropdown.js"></script>
 </body>
 
 </html>
