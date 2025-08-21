@@ -36,8 +36,10 @@ foreach ($search_results as $product) {
     echo "Category: " . htmlspecialchars($product['category_name']) . " (ID: " . $product['category_id'] . ")<br>";
     echo "Price: " . number_format($product['price'], 0, ',', '.') . " VNĐ<br>";
     echo "Product ID: " . $product['product_id'] . "<br>";
-    if (!empty($product['image'])) {
-        echo "<img src='uploads/products/" . htmlspecialchars($product['image']) . "' style='max-width: 100px; max-height: 100px;'><br>";
+    if (!empty($product['image_url'])) {
+        $img = $product['image_url'];
+        $src = (strpos($img, 'http') === 0) ? $img : $img;
+        echo "<img src='" . htmlspecialchars($src) . "' style='max-width: 100px; max-height: 100px;'><br>";
     }
     echo "</div>";
 }
