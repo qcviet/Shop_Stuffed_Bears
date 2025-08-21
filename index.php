@@ -1,4 +1,8 @@
 <?php
+// Start session as early as possible before any output
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
 // Include configuration files
 require_once 'config/config.php';
 require_once 'config/database.php';
@@ -98,7 +102,6 @@ if ($conn) {
         case 'gifts':
         case 'cartoons':
         case 'accessories':
-        case 'search':
         case 'help':
         case 'contact':
             include 'views/users/coming-soon.php';
