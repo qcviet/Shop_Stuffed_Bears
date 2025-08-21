@@ -13,22 +13,30 @@ document.addEventListener('DOMContentLoaded', function() {
         position: absolute;
         top: 100%;
         left: 0;
-        right: 0;
         background: white;
         border: 1px solid #ddd;
         border-top: none;
         border-radius: 0 0 10px 10px;
         max-height: 200px;
         overflow-y: auto;
-        z-index: 1000;
+        z-index: 50;
         display: none;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     `;
 
     const searchContainer = searchInput.closest('.search-input-container');
+    function sizeSuggestionToInput() {
+        if (!searchInput || !suggestionsContainer) return;
+        const inputRect = searchInput.getBoundingClientRect();
+        // Ensure the dropdown matches the input width to avoid covering menu on the right
+        suggestionsContainer.style.width = `${Math.ceil(inputRect.width)}px`;
+    }
+
     if (searchContainer) {
         searchContainer.style.position = 'relative';
         searchContainer.appendChild(suggestionsContainer);
+        sizeSuggestionToInput();
+        window.addEventListener('resize', sizeSuggestionToInput);
     }
 
     // Debounced search function
@@ -113,6 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
             suggestionsContainer.appendChild(suggestionItem);
         });
         
+        sizeSuggestionToInput();
         suggestionsContainer.style.display = 'block';
     }
 
@@ -174,22 +183,14 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const selectedSuggestion = suggestionsContainer.querySelector('.suggestion-item[style*="background-color: rgb(248, 249, 250)"]');
             if (selectedSuggestion) {
-                // Get the product ID from the suggestion
                 const productId = selectedSuggestion.dataset.productId;
                 if (productId) {
                     hideSuggestions();
                     window.location.href = `${BASE_URL}/?page=product-detail&id=${productId}`;
                 }
             } else {
-                // No suggestion selected, submit the search form to category page
                 const searchForm = document.querySelector('.search-form');
                 if (searchForm) {
-                    // Add the search_product parameter
-                    const searchProductInput = document.createElement('input');
-                    searchProductInput.type = 'hidden';
-                    searchProductInput.name = 'search_product';
-                    searchProductInput.value = '1';
-                    searchForm.appendChild(searchProductInput);
                     searchForm.submit();
                 }
             }
