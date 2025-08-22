@@ -57,7 +57,7 @@ $total = $app->getCartTotal($_SESSION['user_id']);
 </head>
 <body>
     <?php include __DIR__ . '/header.php'; ?>
-    <div class="container my-4">
+    <div class="container my-4 cart-page">
         <h3 class="mb-3">Giỏ hàng</h3>
         <?php if (empty($items)): ?>
             <div class="alert alert-info">Giỏ hàng trống. <a href="<?php echo BASE_URL; ?>">Tiếp tục mua sắm</a></div>
@@ -85,14 +85,14 @@ $total = $app->getCartTotal($_SESSION['user_id']);
                                         $img = $row['image_url'] ?? 'assets/images/sp1.jpeg';
                                         $src = (strpos($img, 'http') === 0) ? $img : (BASE_URL . '/' . $img);
                                     ?>
-                                    <img src="<?php echo $src; ?>" alt="" style="width:70px;height:70px;object-fit:cover;border-radius:6px;" />
+                                    <img src="<?php echo $src; ?>" alt="" class="cart-thumb" />
                                 </td>
                                 <td><?php echo htmlspecialchars($row['product_name'] ?? ''); ?></td>
                                 <td><?php echo htmlspecialchars($row['size'] ?? ''); ?></td>
                                 <td><?php echo isset($row['color_name']) && $row['color_name'] !== null && $row['color_name'] !== '' ? htmlspecialchars($row['color_name']) : '<span class="text-muted">—</span>'; ?></td>
                                 <td class="js-unit-price" data-price="<?php echo (float)$row['price']; ?>"><?php echo number_format((float)($row['price'] ?? 0), 0, ',', '.'); ?> ₫</td>
                                 <td style="max-width:180px;">
-                                    <div class="d-inline-flex align-items-center gap-1 js-qty-form" data-item-id="<?php echo (int)$row['cart_item_id']; ?>">
+                                    <div class="d-inline-flex align-items-center gap-1 js-qty-form qty-wrap" data-item-id="<?php echo (int)$row['cart_item_id']; ?>">
                                         <button class="btn btn-sm btn-outline-secondary js-qty-minus" type="button">−</button>
                                         <input type="number" min="0" class="form-control form-control-sm js-qty-input" value="<?php echo (int)$row['quantity']; ?>" style="width:70px; text-align:center;" />
                                         <button class="btn btn-sm btn-outline-secondary js-qty-plus" type="button">+</button>
@@ -112,7 +112,7 @@ $total = $app->getCartTotal($_SESSION['user_id']);
                 </table>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center cart-actions">
                 <form method="post">
                     <input type="hidden" name="action" value="clear" />
                     <button class="btn btn-outline-secondary">Xóa giỏ hàng</button>
