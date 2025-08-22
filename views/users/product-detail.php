@@ -35,19 +35,21 @@ include __DIR__ . '/header.php';
 <div class="container my-4">
     <div class="row g-4">
         <div class="col-md-6">
-            <div class="card">
+            <div class="card product-card">
                 <div class="card-body">
                     <?php 
                         $mainImage = isset($product['images'][0]) ? $product['images'][0] : 'assets/images/sp1.jpeg';
                         $mainImage = (strpos($mainImage, 'http') === 0) ? $mainImage : (BASE_URL . '/' . $mainImage);
                     ?>
-                    <img src="<?php echo $mainImage; ?>" class="img-fluid js-main-image" alt="<?php echo htmlspecialchars($product['product_name'] ?? ''); ?>">
+                    <div class="product-main-image">
+                        <img src="<?php echo $mainImage; ?>" class="js-main-image" alt="<?php echo htmlspecialchars($product['product_name'] ?? ''); ?>">
+                    </div>
                     <?php if (!empty($product['images'])): ?>
-                        <div class="d-flex gap-2 mt-3 flex-wrap">
+                        <div class="d-flex gap-2 mt-3 flex-wrap product-thumbs">
                             <?php foreach ($product['images'] as $img): 
                                 $src = (strpos($img, 'http') === 0) ? $img : (BASE_URL . '/' . $img);
                             ?>
-                                <img src="<?php echo $src; ?>" class="img-thumbnail js-thumb" style="width:80px;height:80px;object-fit:cover;cursor:pointer;" />
+                                <img src="<?php echo $src; ?>" class="img-thumbnail js-thumb" />
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
@@ -56,12 +58,12 @@ include __DIR__ . '/header.php';
         </div>
 
         <div class="col-md-6">
-            <div class="card">
+            <div class="card product-card">
                 <div class="card-body">
                     <h3 class="card-title mb-2"><?php echo htmlspecialchars($product['product_name'] ?? ''); ?></h3>
                     <?php $defaultPrice = isset($variants[0]['price']) ? (float)$variants[0]['price'] : (float)($product['price'] ?? 0); ?>
-                    <div class="text-danger h5 mb-3"><span id="js-price" data-price="<?php echo htmlspecialchars((string)$defaultPrice); ?>"><?php echo number_format($defaultPrice, 0, ',', '.'); ?></span> ₫</div>
-                    <div class="mb-3 text-muted">Danh mục: <?php echo htmlspecialchars($product['category_name'] ?? ''); ?> • Kho: <?php echo (int)($product['stock'] ?? 0); ?></div>
+                    <div class="product-price h4 mb-3"><span id="js-price" data-price="<?php echo htmlspecialchars((string)$defaultPrice); ?>"><?php echo number_format($defaultPrice, 0, ',', '.'); ?></span> ₫</div>
+                    <div class="mb-3 product-meta">Danh mục: <?php echo htmlspecialchars($product['category_name'] ?? ''); ?> • Kho: <?php echo (int)($product['stock'] ?? 0); ?></div>
 
                     <?php if (!empty($variants)): ?>
                         <form method="post" action="<?php echo BASE_URL; ?>/?page=cart">
@@ -100,9 +102,9 @@ include __DIR__ . '/header.php';
                                 <label class="form-label">Số lượng</label>
                                 <input type="number" name="quantity" min="1" value="1" class="form-control" />
                             </div>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-primary" type="submit"><i class="bi bi-bag-plus"></i> Thêm vào giỏ</button>
-                                <a href="<?php echo BASE_URL; ?>/?page=checkout" class="btn btn-outline-secondary">Mua ngay</a>
+                            <div class="product-actions">
+                                <button class="btn btn-add-cart" type="submit"><i class="bi bi-bag-plus"></i> Thêm vào giỏ</button>
+                                <a href="<?php echo BASE_URL; ?>/?page=checkout" class="btn btn-buy-now">Mua ngay</a>
                             </div>
                         </form>
                     <?php else: ?>
