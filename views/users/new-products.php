@@ -31,7 +31,7 @@ $products = $productModel && $activeCategoryId ? $productModel->getAll(12, 0, $a
 				'assets/images/gaubong5.png',
 			];
 			// Configure the 6 category IDs you want to link to (order matches images above)
-			$featuredCategoryIds = [74, 72, 73, 70, 69, 67]; // <-- change IDs as you like
+			$featuredCategoryIds = [70, 69, 72, 73, 4, 5]; // <-- change IDs as you like
 			// Load names for alt/title
 			$categoryNames = [];
 			if ($categoryModel) {
@@ -44,7 +44,7 @@ $products = $productModel && $activeCategoryId ? $productModel->getAll(12, 0, $a
 			}
 		?>
 		<div class="new-products-bottom mb-4">
-			<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3 g-md-4">
+			<div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 g-3 g-md-4">
 				<?php for ($i = 0; $i < 6; $i++): 
 					$img = $featuredImages[$i];
 					$cid = $featuredCategoryIds[$i] ?? null;
