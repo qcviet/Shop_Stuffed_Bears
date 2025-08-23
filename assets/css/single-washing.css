@@ -1,0 +1,29 @@
+.single-washing__title{
+    color: var(--single-text-color);
+    font-size:30px;
+}
+
+.single-washing__description{
+    color: var(--single-text-color);
+    font-size:20px;
+    max-width: 60%;
+    margin: 0 auto;
+}
+
+.single-washing__image{
+    width: 60%;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .single-washing__title{
+        font-size: 20px;
+    }
+    .single-washing__image{
+        width: 100%;
+    }
+    .single-washing__description{
+        font-size: 18px;
+        max-width: 100%;
+    }
+}

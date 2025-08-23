@@ -8,6 +8,9 @@ class AdminCRUD {
         this.bindEvents();
         this.bindImagePreview();
         this.bindPriceFormatting();
+        // Default order filters
+        this._orderStatusFilter = '';
+        this._orderPaymentFilter = '';
         this.loadData();
     }
 
@@ -16,7 +19,21 @@ class AdminCRUD {
         $(document).on('click', '.add-product-btn', () => this.showProductModal());
         $(document).on('click', '.edit-product-btn', (e) => this.editProduct(e));
         $(document).on('click', '.delete-product-btn', (e) => this.deleteProduct(e));
+        $(document).on('click', '.expand-variants-btn', (e) => this.toggleVariantsDetails(e));
         $(document).on('submit', '#productForm', (e) => this.saveProduct(e));
+        // Variant events
+        // Inline variant events
+        $(document).on('click', '#addVariantRowInline', () => this.addVariantRowInline());
+        $(document).on('click', '.variant-save-btn', (e) => this.saveVariantRowInline(e));
+        $(document).on('click', '.variant-delete-btn', (e) => this.deleteVariantRowInline(e));
+        $(document).on('click', '.variant-remove-row-btn', (e) => this.removeVariantRowInline(e));
+
+        // Product-level color events
+        $(document).on('click', '#addColorBtn', () => this.addProductColor());
+        $(document).on('click', '.color-edit-btn', (e) => this.editProductColor(e));
+        $(document).on('click', '.color-save-btn', (e) => this.saveProductColor(e));
+        $(document).on('click', '.color-cancel-btn', (e) => this.cancelProductColor(e));
+        $(document).on('click', '.color-delete-btn', (e) => this.deleteProductColor(e));
 
         // Category events
         $(document).on('click', '.add-category-btn', () => this.showCategoryModal());
@@ -32,27 +49,33 @@ class AdminCRUD {
         $(document).on('submit', '#userForm', (e) => this.saveUser(e));
 
         // Order events
-        $(document).on('click', '.update-order-status', (e) => this.updateOrderStatus(e));
+        $(document).on('click', '.view-order-btn', (e) => this.viewOrderDetail(e));
+        $(document).on('click', '.update-order-status', (e) => this.openOrderUpdateModal(e));
+        $(document).on('click', '#saveOrderUpdateBtn', () => this.saveOrderUpdate());
         $(document).on('click', '.delete-order-btn', (e) => this.deleteOrder(e));
 
         // Orders history filter
         $(document).on('submit', '#ordersHistoryFilter', (e) => this.applyOrdersHistoryFilter(e));
+
+        // Removed filter toolbar in UI; no filter handlers needed
+
+        // Quick filters for orders
+        $(document).on('click', '#filterPendingOrdersBtn', () => this.loadOrders('Chờ xác nhận'));
+        $(document).on('click', '#viewAllOrdersBtn', () => this.loadOrders(''));
     }
 
     // Product Methods
     showProductModal(product = null) {
         const modal = $('#productModal');
         const form = $('#productForm');
+        // reset temp new-product colors holder each time modal opens
+        this._tempNewProductColors = [];
         
         if (product) {
             form.find('[name=product_id]').val(product.product_id);
             form.find('[name=product_name]').val(product.product_name);
             form.find('[name=category_id]').val(product.category_id);
             form.find('[name=description]').val(product.description);
-            const priceInt = (product.price !== undefined && product.price !== null) ? Math.round(Number(product.price)) : '';
-            const priceDisplay = priceInt === '' ? '' : new Intl.NumberFormat('vi-VN').format(priceInt);
-            form.find('[name=price]').val(priceDisplay);
-            form.find('[name=stock]').val(product.stock);
             modal.find('.modal-title').text('Edit Product');
             const base = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : (window.BASE_URL || '');
             const images = product.images || (product.image_url ? [product.image_url] : []);
@@ -70,6 +93,20 @@ class AdminCRUD {
         }
         
         modal.modal('show');
+        // Load inline variants table if editing existing product
+        const pid = form.find('[name=product_id]').val();
+        if (pid) {
+            this.loadVariantsInline(pid);
+            $('#variantsInlineHint').hide();
+        } else {
+            $('#variantsTableInline tbody').empty();
+            $('#variantsInlineHint').hide();
+            // Prefill with one empty variant row for convenience
+            this.renderVariantRowInline({});
+        }
+        // Load product colors
+        const pidColors = form.find('[name=product_id]').val();
+        this.loadProductColors(pidColors);
     }
 
     async editProduct(e) {
@@ -116,14 +153,39 @@ class AdminCRUD {
         e.preventDefault();
         const form = $(e.target);
         const formData = new FormData(form[0]);
-        // Normalize price to integer VND or empty (strip separators)
-        const rawPrice = (form.find('[name=price]').val() || '').toString().replace(/[^0-9]/g, '');
-        if (rawPrice.length > 0) {
-            formData.set('price', parseInt(rawPrice, 10));
-        } else {
-            formData.delete('price');
+        const isUpdate = !!form.find('[name=product_id]').val();
+        formData.append('action', isUpdate ? 'update' : 'create');
+
+        // If creating, gather inline variants and send with the request
+        if (!isUpdate) {
+            const variants = [];
+            $('#variantsTableInline tbody tr').each(function() {
+                const $tr = $(this);
+                const size = ($tr.find('.variant-size').val() || '').trim();
+                const priceRaw = ($tr.find('.variant-price').val() || '').toString().replace(/[^0-9]/g, '');
+                const price = priceRaw.length ? parseInt(priceRaw, 10) : 0;
+                const stock = parseInt($tr.find('.variant-stock').val() || '0', 10);
+                if (size) {
+                    variants.push({ size, price, stock });
+                }
+            });
+            if (variants.length === 0) {
+                this.showAlert('Error', 'Please add at least one variant (size, price, stock).', 'error');
+                return;
+            }
+            formData.append('variants_json', JSON.stringify(variants));
+
+            // collect product colors for new product
+            let colors = Array.isArray(this._tempNewProductColors) ? this._tempNewProductColors.slice() : [];
+            if (colors.length === 0) {
+                // fallback: read from table
+                $('#colorsTableInline tbody tr').each(function() {
+                    const name = ($(this).find('.color-name-cell').text() || '').trim();
+                    if (name) colors.push(name);
+                });
+            }
+            formData.append('colors_json', JSON.stringify(colors));
         }
-        formData.append('action', form.find('[name=product_id]').val() ? 'update' : 'create');
 
         try {
             const response = await $.ajax({
@@ -356,8 +418,8 @@ class AdminCRUD {
 
     // Order Methods
     async updateOrderStatus(e) {
-        const orderId = $(e.target).data('id');
-        const currentStatus = $(e.target).data('status');
+        const orderId = $(e.currentTarget).data('id');
+        const currentStatus = $(e.currentTarget).data('status');
         const newStatus = prompt('Enter new status (Chờ xác nhận/Đang giao/Đã giao/Đã hủy):', currentStatus);
         
         if (newStatus && newStatus !== currentStatus) {
@@ -381,7 +443,7 @@ class AdminCRUD {
     }
 
     async deleteOrder(e) {
-        const orderId = $(e.target).data('id');
+        const orderId = $(e.currentTarget).data('id');
         
         if (confirm('Are you sure you want to delete this order?')) {
             try {
@@ -428,8 +490,7 @@ class AdminCRUD {
             const currentPage = parseInt(urlParams.get('p') || '1', 10);
             const response = await $.get('actions/product_actions.php', { action: 'list', page: currentPage, limit: 10 });
             if (response.success) {
-                // Ensure price is integer for display
-                const products = (response.data || []).map(p => ({ ...p, price: p.price ? Math.round(Number(p.price)) : 0 }));
+                const products = (response.data || []);
                 this.renderProductsTable(products);
                 this.renderPagination(response.pages || 1, response.current_page || 1, 'products');
             }
@@ -480,9 +541,11 @@ class AdminCRUD {
         }
     }
 
-    async loadOrders() {
+    async loadOrders(statusFilter = '') {
         try {
-            const response = await $.get('actions/order_actions.php', { action: 'list' });
+            const params = { action: 'list' };
+            if (statusFilter) params.status = statusFilter;
+            const response = await $.get('actions/order_actions.php', params);
             if (response.success) {
                 this.renderOrdersTable(response.data);
                 this.renderPagination(response.pages, response.current_page, 'orders');
@@ -560,22 +623,103 @@ class AdminCRUD {
         products.forEach(product => {
             const base = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : (window.BASE_URL || '');
             const imageUrl = product.image_url ? (product.image_url.startsWith('http') ? product.image_url : `${base}/${product.image_url}`) : `${base}/assets/images/sp1.jpeg`;
+            // Build prices list display from lowest to highest
+            let pricesDisplay = '—';
+            if (product.price_list) {
+                const prices = String(product.price_list)
+                    .split(',')
+                    .map(p => Number(p))
+                    .filter(n => !isNaN(n))
+                    .sort((a, b) => a - b);
+                if (prices.length > 0) {
+                    pricesDisplay = prices.map(n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)).join(', ');
+                }
+            }
             const row = `
                 <tr>
                     <td>${product.product_id}</td>
                     <td><img src="${imageUrl}" alt="${product.product_name}" style="height:40px;width:40px;object-fit:cover;border-radius:6px;" /></td>
                     <td>${product.product_name}</td>
                     <td>${product.category_name || 'N/A'}</td>
-                    <td>${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.price || 0))}</td>
+                    <td>${this.renderMinMaxPrice(product)}</td>
                     <td>${product.stock}</td>
                     <td>
                         <button class="btn btn-sm btn-outline-primary edit-product-btn" data-id="${product.product_id}"><i class="bi bi-pencil"></i></button>
                         <button class="btn btn-sm btn-outline-danger delete-product-btn" data-id="${product.product_id}" data-name="${product.product_name}"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary expand-variants-btn" data-id="${product.product_id}" title="View variants"><i class="bi bi-chevron-down"></i></button>
                     </td>
                 </tr>
             `;
             tbody.append(row);
         });
+    }
+
+    renderMinMaxPrice(product) {
+        // prefer price_list; else derive from variants if attached
+        let prices = [];
+        if (product.price_list) {
+            prices = String(product.price_list)
+                .split(',')
+                .map(p => Number(p))
+                .filter(n => !isNaN(n));
+        } else if (product.variants && product.variants.length) {
+            prices = product.variants.map(v => Number(v.price || 0)).filter(n => !isNaN(n));
+        } else if (product.price != null) {
+            prices = [Number(product.price)];
+        }
+        if (prices.length === 0) return '—';
+        prices.sort((a, b) => a - b);
+        const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
+        if (prices.length === 1) return fmt(prices[0]);
+        return `${fmt(prices[0])} - ${fmt(prices[prices.length - 1])}`;
+    }
+
+    async toggleVariantsDetails(e) {
+        const $btn = $(e.currentTarget);
+        const productId = $btn.data('id');
+        const $row = $btn.closest('tr');
+        const $next = $row.next('.product-variants-row');
+        if ($next.length) {
+            $next.remove();
+            $btn.find('i').removeClass('bi-chevron-up').addClass('bi-chevron-down');
+            return;
+        }
+        try {
+            const res = await $.get('actions/product_actions.php', { action: 'variants', product_id: productId });
+            if (!res.success) return;
+            const variants = res.data || [];
+            const detailsHtml = this.renderVariantsDetailsTable(variants);
+            const colspan = $('#productsTable thead th').length;
+            const detailsRow = `<tr class="product-variants-row"><td colspan="${colspan}">${detailsHtml}</td></tr>`;
+            $row.after(detailsRow);
+            $btn.find('i').removeClass('bi-chevron-down').addClass('bi-chevron-up');
+        } catch (err) {
+            console.error('toggleVariantsDetails error', err);
+        }
+    }
+
+    renderVariantsDetailsTable(variants) {
+        if (!variants.length) {
+            return '<div class="text-muted">No variants</div>';
+        }
+        let rows = '';
+        variants
+            .slice()
+            .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+            .forEach(v => {
+                const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(v.price || 0));
+                rows += `<tr><td>${v.size || ''}</td><td>${price}</td><td>${v.stock || 0}</td></tr>`;
+            });
+        return `
+            <div class="card card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Size</th><th>Price</th><th>Stock</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
     }
 
     // Image preview
@@ -620,25 +764,269 @@ class AdminCRUD {
     }
 
     bindPriceFormatting() {
-        // Live thousand separators for VND price input
-        $(document).on('input', '#price', function() {
-            const cursorPos = this.selectionStart;
+        // Live thousand separators for VND in inline variant price inputs
+        $(document).on('input', '.variant-price', function() {
             const raw = this.value.replace(/[^0-9]/g, '');
             if (raw.length === 0) {
                 this.value = '';
                 return;
             }
-            const formatted = new Intl.NumberFormat('vi-VN').format(parseInt(raw, 10));
+            const formatted = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(parseInt(raw, 10));
             this.value = formatted;
-            // Attempt to preserve caret near end (simple approach)
-            try { this.selectionEnd = this.value.length; } catch(e) {}
         });
-
-        // On focusout, ensure clean formatting
-        $(document).on('blur', '#price', function() {
+        $(document).on('blur', '.variant-price', function() {
             const raw = this.value.replace(/[^0-9]/g, '');
-            this.value = raw ? new Intl.NumberFormat('vi-VN').format(parseInt(raw, 10)) : '';
+            this.value = raw ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(parseInt(raw, 10)) : '';
         });
+    }
+
+    // Inline Variant management
+    async loadVariantsInline(productId) {
+        try {
+            const res = await $.get('actions/product_actions.php', { action: 'variants', product_id: productId });
+            if (!res.success) return;
+            const tbody = $('#variantsTableInline tbody');
+            tbody.empty();
+            (res.data || []).forEach(v => this.renderVariantRowInline(v));
+        } catch (err) {
+            console.error('loadVariantsInline error', err);
+        }
+    }
+
+    // Product-level Colors management
+    async loadProductColors(productId) {
+        const chips = $('#productColorsChips');
+        chips.empty();
+        if (!productId) {
+            // New product: use local temp list from input field if any later; currently empty
+            return;
+        }
+        try {
+            const res = await $.get('actions/product_actions.php', { action: 'product_colors', product_id: productId });
+            if (!res || !res.success) return;
+            (res.data || []).forEach(c => this.renderProductColorChip(c));
+        } catch (err) {
+            console.error('loadProductColors error', err);
+        }
+    }
+
+    renderProductColorChip(color) {
+        const wrap = $('#productColorsChips');
+        const idAttr = color && color.color_id ? `data-id="${color.color_id}"` : '';
+        const name = color && color.color_name ? color.color_name : '';
+        const chip = `
+            <span class="badge bg-light text-dark border d-inline-flex align-items-center color-chip" ${idAttr}>
+                <span class="color-name-cell">${this.escapeHtml(name)}</span>
+                <button type="button" class="btn btn-sm btn-link p-0 color-edit-btn" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button type="button" class="btn btn-sm btn-link p-0 text-danger color-delete-btn" title="Delete"><i class="bi bi-x"></i></button>
+            </span>
+        `;
+        wrap.append(chip);
+    }
+
+    escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    async addProductColor() {
+        const name = ($('#newColorName').val() || '').trim();
+        if (!name) { alert('Please enter a color name'); return; }
+        const productId = $('#productForm [name=product_id]').val();
+        if (!productId) {
+            // New product -> append to table and keep in hidden list
+            this.renderProductColorChip({ color_name: name });
+            const list = this._tempNewProductColors || [];
+            list.push(name);
+            this._tempNewProductColors = list;
+            $('#newColorName').val('');
+            return;
+        }
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'product_color_create', product_id: productId, color_name: name });
+            if (res && res.success) {
+                $('#newColorName').val('');
+                await this.loadProductColors(productId);
+            } else {
+                alert((res && res.message) || 'Failed to add color');
+            }
+        } catch (err) {
+            console.error('addProductColor error', err);
+        }
+    }
+
+    editProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const name = $chip.find('.color-name-cell').text().trim();
+        $chip.data('orig-name', name);
+        $chip.find('.color-name-cell').html(`<input type="text" class="form-control form-control-sm color-name-input" value="${name}" style="width:130px;">`);
+        $chip.find('.color-edit-btn').replaceWith('<button type="button" class="btn btn-sm btn-success color-save-btn p-0">Save</button>');
+        $chip.find('.color-delete-btn').replaceWith('<button type="button" class="btn btn-sm btn-outline-secondary color-cancel-btn p-0">Cancel</button>');
+    }
+
+    async saveProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const id = $chip.data('id');
+        const name = ($chip.find('.color-name-input').val() || '').trim();
+        if (!name) { alert('Color name is required'); return; }
+        const productId = $('#productForm [name=product_id]').val();
+        if (!id) {
+            // New product local row update
+            const idx = $chip.index();
+            if (this._tempNewProductColors && this._tempNewProductColors[idx] !== undefined) {
+                this._tempNewProductColors[idx] = name;
+            }
+            $chip.find('.color-name-cell').text(name);
+            $chip.find('.color-save-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 color-edit-btn" title="Edit"><i class="bi bi-pencil"></i></button>');
+            $chip.find('.color-cancel-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 text-danger color-delete-btn" title="Delete"><i class="bi bi-x"></i></button>');
+            return;
+        }
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'product_color_update', color_id: id, color_name: name });
+            if (res && res.success) {
+                await this.loadProductColors(productId);
+            } else {
+                alert((res && res.message) || 'Failed to update color');
+            }
+        } catch (err) {
+            console.error('saveProductColor error', err);
+        }
+    }
+
+    cancelProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const name = $chip.data('orig-name') || '';
+        $chip.find('.color-name-cell').text(name);
+        $chip.find('.color-save-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 color-edit-btn" title="Edit"><i class="bi bi-pencil"></i></button>');
+        $chip.find('.color-cancel-btn').replaceWith('<button type="button" class="btn btn-sm btn-link p-0 text-danger color-delete-btn" title="Delete"><i class="bi bi-x"></i></button>');
+    }
+
+    async deleteProductColor(e) {
+        const $chip = $(e.currentTarget).closest('.color-chip');
+        const id = $chip.data('id');
+        const productId = $('#productForm [name=product_id]').val();
+        if (!id) {
+            // Remove local row for new product
+            const idx = $chip.index();
+            if (Array.isArray(this._tempNewProductColors)) {
+                this._tempNewProductColors.splice(idx, 1);
+            }
+            $chip.remove();
+            return;
+        }
+        if (!confirm('Delete this color?')) return;
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'product_color_delete', color_id: id });
+            if (res && res.success) {
+                await this.loadProductColors(productId);
+            } else {
+                alert((res && res.message) || 'Failed to delete color');
+            }
+        } catch (err) {
+            console.error('deleteProductColor error', err);
+        }
+    }
+    renderVariantRowInline(variant) {
+        const tbody = $('#variantsTableInline tbody');
+        const idAttr = variant.variant_id ? `data-id="${variant.variant_id}"` : '';
+        const priceDisplay = variant.price !== undefined && variant.price !== null
+            ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(Number(variant.price)))
+            : '';
+        const hasProductId = !!$('#productForm [name=product_id]').val();
+        // Build actions depending on context
+        let actionsHtml = '';
+        if (variant.variant_id) {
+            actionsHtml = `
+                <button type="button" class="btn btn-sm btn-success variant-save-btn">Save</button>
+                <button type="button" class="btn btn-sm btn-outline-danger variant-delete-btn">Delete</button>
+            `;
+        } else if (hasProductId) {
+            // Editing existing product, new row -> allow save (create) and remove (discard)
+            actionsHtml = `
+                <button type="button" class="btn btn-sm btn-success variant-save-btn">Save</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary variant-remove-row-btn">Remove</button>
+            `;
+        } else {
+            // Creating new product -> rows are local only; allow remove
+            actionsHtml = `
+                <button type="button" class="btn btn-sm btn-outline-secondary variant-remove-row-btn">Remove</button>
+            `;
+        }
+        const row = `
+            <tr class="variant-row" ${idAttr}>
+                <td><input type="text" class="form-control form-control-sm variant-size" value="${variant.size || ''}"></td>
+                <td><input type="text" class="form-control form-control-sm variant-price" value="${priceDisplay}" placeholder="0"></td>
+                <td><input type="number" class="form-control form-control-sm variant-stock" value="${variant.stock !== undefined ? variant.stock : ''}" min="0" placeholder="0"></td>
+                <td>${actionsHtml}</td>
+            </tr>
+        `;
+        tbody.append(row);
+    }
+
+    addVariantRowInline() {
+        this.renderVariantRowInline({});
+    }
+
+    async saveVariantRowInline(e) {
+        const $row = $(e.currentTarget).closest('tr');
+        const variantId = $row.data('id');
+        const productId = $('#productForm [name=product_id]').val();
+        const size = ($row.find('.variant-size').val() || '').trim();
+        const priceRaw = ($row.find('.variant-price').val() || '').toString().replace(/[^0-9]/g, '');
+        const price = priceRaw.length ? parseInt(priceRaw, 10) : 0;
+        const stock = parseInt($row.find('.variant-stock').val() || '0', 10);
+        if (!size) { alert('Size is required'); return; }
+        // If creating a new product (no productId), variants are saved together with the product
+        if (!productId) {
+            // Provide a small UX hint and keep the row locally
+            const $hint = $('#variantsInlineHint');
+            $hint.text('Variants will be saved together with the new product.').show();
+            return;
+        }
+        try {
+            let res;
+            if (variantId) {
+                res = await $.post('actions/product_actions.php', { action: 'variant_update', variant_id: variantId, size, price, stock });
+            } else {
+                res = await $.post('actions/product_actions.php', { action: 'variant_create', product_id: productId, size, price, stock });
+            }
+            if (res.success) {
+                await this.loadVariantsInline(productId);
+                this.loadProducts();
+            } else {
+                alert(res.message || 'Failed to save variant');
+            }
+        } catch (err) {
+            console.error('saveVariantRowInline error', err);
+        }
+    }
+
+    async deleteVariantRowInline(e) {
+        const $row = $(e.currentTarget).closest('tr');
+        const variantId = $row.data('id');
+        const productId = $('#productForm [name=product_id]').val();
+        if (!variantId) return;
+        if (!confirm('Delete this variant?')) return;
+        try {
+            const res = await $.post('actions/product_actions.php', { action: 'variant_delete', variant_id: variantId });
+            if (res.success) {
+                await this.loadVariantsInline(productId);
+                this.loadProducts();
+            } else {
+                alert(res.message || 'Failed to delete variant');
+            }
+        } catch (err) {
+            console.error('deleteVariantRowInline error', err);
+        }
+    }
+
+    removeVariantRowInline(e) {
+        const $row = $(e.currentTarget).closest('tr');
+        $row.remove();
     }
 
     renderCategoriesTable(categories) {
@@ -694,21 +1082,137 @@ class AdminCRUD {
         
         orders.forEach(order => {
             const statusClass = this.getStatusClass(order.status);
+            const paymentIsPaid = (order.payment_status === 'Đã thanh toán');
+            const paymentBadgeClass = paymentIsPaid ? 'bg-success' : 'bg-danger';
+            const canDelete = (order.status === 'Đã hủy');
+            const deleteBtnHtml = canDelete ? `<button class="btn btn-sm btn-outline-danger delete-order-btn" data-id="${order.order_id}"><i class="bi bi-trash"></i></button>` : '';
             const row = `
                 <tr>
                     <td>#${order.order_id}</td>
                     <td>${order.full_name || order.username}</td>
                     <td>${order.total_amount}₫</td>
                     <td><span class="badge ${statusClass}">${order.status}</span></td>
+                    <td><span class="badge ${paymentBadgeClass}">${order.payment_status || 'Chưa thanh toán'}</span></td>
                     <td>${order.order_date ? new Date(order.order_date).toLocaleDateString() : 'N/A'}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary update-order-status" data-id="${order.order_id}" data-status="${order.status}"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-outline-danger delete-order-btn" data-id="${order.order_id}"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary view-order-btn" data-id="${order.order_id}" title="View details"><i class="bi bi-eye"></i></button>
+                        <button class="btn btn-sm btn-outline-primary update-order-status" data-id="${order.order_id}" data-status="${order.status}" data-payment="${order.payment_status || ''}" title="Edit status & payment"><i class="bi bi-pencil"></i></button>
+                        ${deleteBtnHtml}
                     </td>
                 </tr>
             `;
             tbody.append(row);
         });
+    }
+
+    async viewOrderDetail(e) {
+        const orderId = $(e.currentTarget).data('id');
+        try {
+            const res = await $.get('actions/order_actions.php', { action: 'get', order_id: orderId });
+            if (!res.success) {
+                this.showAlert('Error', res.message || 'Failed to load order details', 'error');
+                return;
+            }
+            const order = res.data || {};
+            const items = res.items || [];
+            const totalQuantity = items.reduce((sum, it) => sum + (parseInt(it.quantity, 10) || 0), 0);
+            // Fill modal fields
+            const modal = $('#orderDetailModal');
+            modal.find('.od-order-id').text(`#${order.order_id}`);
+            modal.find('.od-customer-name').text(order.full_name || order.username || 'N/A');
+            modal.find('.od-customer-email').text(order.email || 'N/A');
+            modal.find('.od-customer-phone').text(order.phone || 'N/A');
+            modal.find('.od-customer-address').text(order.address || 'N/A');
+            modal.find('.od-order-date').text(order.order_date ? new Date(order.order_date).toLocaleString() : 'N/A');
+            modal.find('.od-status').text(order.status || '');
+            modal.find('.od-payment').text(order.payment_status || '');
+            modal.find('.od-total').text(new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(order.total_amount || 0)));
+            modal.find('.od-items-count').text(items.length);
+            modal.find('.od-total-quantity').text(totalQuantity);
+
+            const tbody = modal.find('tbody.od-items-tbody');
+            tbody.empty();
+            items.forEach(it => {
+                const price = Number(it.price || 0);
+                const qty = Number(it.quantity || 0);
+                const line = price * qty;
+                const colorVal = (it.color_name && String(it.color_name).length) ? it.color_name : '';
+                const base = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : (window.BASE_URL || '');
+                const img = it.image_url ? (it.image_url.startsWith('http') ? it.image_url : `${base}/${it.image_url}`) : `${base}/assets/images/sp1.jpeg`;
+                const tr = `
+                    <tr>
+                        <td><img src="${img}" alt="" style="width:50px;height:50px;object-fit:cover;border-radius:6px;" /></td>
+                        <td>${this.escapeHtml(it.product_name || '')}</td>
+                        <td>${this.escapeHtml(it.size || '')}</td>
+                        <td>${this.escapeHtml(colorVal)}</td>
+                        <td class="text-end">${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(price)}</td>
+                        <td class="text-end">${qty}</td>
+                        <td class="text-end">${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(line)}</td>
+                    </tr>
+                `;
+                tbody.append(tr);
+            });
+            modal.modal('show');
+        } catch (err) {
+            this.showAlert('Error', 'Failed to load order details', 'error');
+        }
+    }
+
+    openOrderUpdateModal(e) {
+        const $btn = $(e.currentTarget);
+        const id = $btn.data('id');
+        const status = $btn.data('status') || 'Chờ xác nhận';
+        const payment = $btn.data('payment') || 'Chưa thanh toán';
+        const modal = $('#orderUpdateModal');
+        modal.find('[name=order_id]').val(id);
+        modal.find('[name=status]').val(status);
+        modal.find('[name=payment_status]').val(payment);
+        modal.modal('show');
+    }
+
+    async saveOrderUpdate() {
+        const modal = $('#orderUpdateModal');
+        const id = modal.find('[name=order_id]').val();
+        const status = modal.find('[name=status]').val();
+        const payment = modal.find('[name=payment_status]').val();
+        try {
+            const [res1, res2] = await Promise.all([
+                $.post('actions/order_actions.php', { action: 'update_status', order_id: id, status }),
+                $.post('actions/order_actions.php', { action: 'update_payment_status', order_id: id, payment_status: payment })
+            ]);
+            if ((res1 && res1.success) && (res2 && res2.success)) {
+                this.showAlert('Success', 'Order updated', 'success');
+                modal.modal('hide');
+                this.loadOrders();
+            } else {
+                const msg = (res1 && res1.message ? res1.message : '') + ' ' + (res2 && res2.message ? res2.message : '');
+                this.showAlert('Error', msg || 'Failed to update order', 'error');
+            }
+        } catch (err) {
+            this.showAlert('Error', 'Failed to update order', 'error');
+        }
+    }
+
+    async updatePaymentStatus(e) {
+        const $btn = $(e.currentTarget);
+        const orderId = $btn.data('id');
+        const currentPayment = ($btn.data('payment') || '').toString();
+        const newPayment = currentPayment === 'Đã thanh toán' ? 'Chưa thanh toán' : 'Đã thanh toán';
+        try {
+            const response = await $.post('actions/order_actions.php', {
+                action: 'update_payment_status',
+                order_id: orderId,
+                payment_status: newPayment
+            });
+            if (response.success) {
+                this.showAlert('Success', response.message, 'success');
+                this.loadOrders();
+            } else {
+                this.showAlert('Error', response.message, 'error');
+            }
+        } catch (err) {
+            this.showAlert('Error', 'Failed to update payment status', 'error');
+        }
     }
 
     renderPagination(pages, currentPage, type) {
@@ -747,12 +1251,16 @@ class AdminCRUD {
     }
 
     getStatusClass(status) {
-        switch (status) {
-            case 'Chờ xác nhận': return 'bg-warning';
-            case 'Đang giao': return 'bg-info';
+        const s = (status || '').toString().trim();
+        // Normalize composed characters to avoid mismatch due to accents forms
+        const n = typeof s.normalize === 'function' ? s.normalize('NFC') : s;
+        switch (n) {
+            case 'Chờ xác nhận': return 'bg-warning text-dark';
+            case 'Đã xác nhận': return 'bg-primary';
+            case 'Đang giao': return 'bg-info text-dark';
             case 'Đã giao': return 'bg-success';
             case 'Đã hủy': return 'bg-danger';
-            default: return 'bg-secondary';
+            default: return 'bg-light text-dark border';
         }
     }
 

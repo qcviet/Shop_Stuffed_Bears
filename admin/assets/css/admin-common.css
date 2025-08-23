@@ -1,4 +1,25 @@
 /* Admin Common Styles - Prefixed to avoid conflicts */
+/* Product Colors chip styles */
+.color-chip {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    gap: 6px;
+}
+.color-chip .btn {
+    line-height: 1;
+    height: 20px;
+    width: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.color-chip .btn i {
+    font-size: 0.9rem;
+}
+#productColorsChips {
+    gap: 8px !important;
+}
 
 /* Admin Dashboard Layout */
 .admin-dashboard {

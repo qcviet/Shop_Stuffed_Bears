@@ -30,7 +30,7 @@ if (!$user) {
 }
 
 // Handle profile update
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['profile_update'])) {
     $full_name = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
@@ -68,6 +68,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Exception $e) {
             $error = 'Lỗi: ' . $e->getMessage();
         }
+    }
+}
+
+// Handle cancel order from profile orders tab
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
+    $cancelId = intval($_POST['cancel_order_id']);
+    if ($cancelId > 0) {
+        $appController->cancelUserOrder($_SESSION['user_id'], $cancelId);
+        header('Location: ' . BASE_URL . '/?page=profile#orders');
+        exit;
     }
 }
 
@@ -155,6 +165,7 @@ $userOrders = $appController->getUserOrders($_SESSION['user_id']);
                                 <?php endif; ?>
                                 
                                 <form method="POST" action="" class="user-profile__form" id="profileForm">
+                                    <input type="hidden" name="profile_update" value="1">
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="user-profile__form-group">
@@ -210,58 +221,70 @@ $userOrders = $appController->getUserOrders($_SESSION['user_id']);
 
                     <!-- Orders Tab -->
                     <div class="user-profile__tab-content" id="orders-tab" style="display: none;">
+                        <style>
+                            .status-badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+                            .status-pending { background-color: #fff3cd; color: #856404; }
+                            .status-confirmed { background-color: #dbeafe; color: #1d4ed8; }
+                            .status-shipping { background-color: #cce5ff; color: #004085; }
+                            .status-delivered { background-color: #d4edda; color: #155724; }
+                            .status-cancelled { background-color: #f8d7da; color: #721c24; }
+                            .payment-pending { background-color: #fff3cd; color: #856404; }
+                            .payment-paid { background-color: #d4edda; color: #155724; }
+                            .order-item { border: 1px solid #e9ecef; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+                        </style>
                         <div class="user-profile__card">
                             <div class="user-profile__card-header">
-                                <h2 class="user-profile__card-title">
+                                <h2 class="user-profile__card-title mb-0">
                                     <i class="bi bi-bag"></i> Đơn hàng của tôi
                                 </h2>
                             </div>
-                            
                             <div class="user-profile__card-body">
                                 <?php if (empty($userOrders)): ?>
-                                    <div class="user-profile__empty-state">
-                                        <i class="bi bi-bag-x"></i>
-                                        <h3>Chưa có đơn hàng nào</h3>
-                                        <p>Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm ngay!</p>
-                                        <a href="<?php echo BASE_URL; ?>" class="user-profile__button user-profile__button--primary">
-                                            <i class="bi bi-shop"></i> Mua sắm ngay
-                                        </a>
-                                    </div>
+                                    <div class="text-center py-4 text-muted">Chưa có đơn hàng nào.</div>
                                 <?php else: ?>
-                                    <div class="user-profile__orders">
-                                        <?php foreach ($userOrders as $order): ?>
-                                            <div class="user-profile__order-item">
-                                                <div class="user-profile__order-header">
-                                                    <div class="user-profile__order-info">
-                                                        <h4 class="user-profile__order-id">Đơn hàng #<?php echo $order['order_id']; ?></h4>
-                                                        <p class="user-profile__order-date">
-                                                            <i class="bi bi-calendar"></i> 
-                                                            <?php echo date('d/m/Y H:i', strtotime($order['created_at'])); ?>
-                                                        </p>
-                                                    </div>
-                                                    <div class="user-profile__order-status">
-                                                        <span class="user-profile__status-badge user-profile__status-badge--<?php echo strtolower($order['status']); ?>">
-                                                            <?php echo $order['status']; ?>
-                                                        </span>
-                                                    </div>
+                                    <?php foreach ($userOrders as $order): ?>
+                                        <div class="order-item">
+                                            <div class="row align-items-center">
+                                                <div class="col-md-3">
+                                                    <div class="fw-semibold mb-1">Đơn hàng #<?php echo (int)$order['order_id']; ?></div>
+                                                    <small class="text-muted"><i class="bi bi-calendar"></i> <?php echo date('d/m/Y H:i', strtotime($order['order_date'])); ?></small>
                                                 </div>
-                                                <div class="user-profile__order-details">
-                                                    <p class="user-profile__order-total">
-                                                        <strong>Tổng tiền:</strong> <?php echo number_format($order['total_amount']); ?>₫
-                                                    </p>
-                                                    <a href="<?php echo BASE_URL; ?>/order-detail/<?php echo $order['order_id']; ?>" 
-                                                       class="user-profile__button user-profile__button--secondary">
-                                                        <i class="bi bi-eye"></i> Xem chi tiết
-                                                    </a>
+                                                <div class="col-md-3">
+                                                    <strong class="text-primary"><?php echo number_format((float)$order['total_amount'], 0, ',', '.'); ?> ₫</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <?php
+                                                    $statusClass = '';
+                                                    switch ($order['status']) {
+                                                        case 'Chờ xác nhận': $statusClass = 'status-pending'; break;
+                                                        case 'Đã xác nhận': $statusClass = 'status-confirmed'; break;
+                                                        case 'Đang giao': $statusClass = 'status-shipping'; break;
+                                                        case 'Đã giao': $statusClass = 'status-delivered'; break;
+                                                        case 'Đã hủy': $statusClass = 'status-cancelled'; break;
+                                                    }
+                                                    ?>
+                                                    <span class="status-badge <?php echo $statusClass; ?>"><?php echo htmlspecialchars($order['status']); ?></span>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <?php $paymentClass = ($order['payment_status'] === 'Đã thanh toán') ? 'payment-paid' : 'payment-pending'; ?>
+                                                    <span class="status-badge <?php echo $paymentClass; ?>"><?php echo htmlspecialchars($order['payment_status']); ?></span>
                                                 </div>
                                             </div>
-                                        <?php endforeach; ?>
-                                    </div>
+                                            <div class="mt-3">
+                                                <button type="button" class="btn btn-outline-primary btn-sm js-view-order" data-order-id="<?php echo (int)$order['order_id']; ?>"><i class="bi bi-eye"></i> Xem chi tiết</button>
+                                                <?php if ($order['status'] === 'Chờ xác nhận'): ?>
+                                                    <form method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này?');">
+                                                        <input type="hidden" name="cancel_order_id" value="<?php echo (int)$order['order_id']; ?>">
+                                                        <button class="btn btn-outline-danger btn-sm"><i class="bi bi-x-circle"></i> Hủy đơn</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
                     </div>
-
                     <!-- Security Tab -->
                     <div class="user-profile__tab-content" id="security-tab" style="display: none;">
                         <div class="user-profile__card">
@@ -308,5 +331,6 @@ $userOrders = $appController->getUserOrders($_SESSION['user_id']);
     <!-- User JavaScript Files -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?php echo BASE_URL; ?>/assets/js/user-profile.js"></script>
+    <script>document.body.setAttribute('data-base-url','<?php echo BASE_URL; ?>');</script>
 </body>
 </html> 

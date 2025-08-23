@@ -1,4 +1,8 @@
 <?php
+// Start session as early as possible before any output
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
 // Include configuration files
 require_once 'config/config.php';
 require_once 'config/database.php';
@@ -98,11 +102,8 @@ if ($conn) {
         case 'gifts':
         case 'cartoons':
         case 'accessories':
-        case 'cart':
-        case 'search':
         case 'help':
         case 'contact':
-            // Show coming soon page for pages that don't exist yet
             include 'views/users/coming-soon.php';
             break;
         case 'login':
@@ -114,21 +115,50 @@ if ($conn) {
         case 'profile':
             include 'views/users/profile.php';
             break;
+        case 'category':
+            include 'views/users/category-page.php';
+            break;
         case 'logout':
             include 'views/users/logout.php';
             break;
         case 'orders':
-            // Redirect to profile page with orders tab
-            header('Location: ' . BASE_URL . '?page=profile#orders');
-            exit;
+            include 'views/users/orders.php';
+            break;
+        case 'cart':
+            include 'views/users/cart.php';
+            break;
+        case 'checkout':
+            include 'views/users/checkout.php';
+            break;
+        case 'single-compression':
+            include 'views/users/single-compression.php';
+            break;
+        case 'single-ship':
+            include 'views/users/single-ship.php';
+            break;
+        case 'single-gift-wrapping':
+            include 'views/users/single-gift-wrapping.php';
+            break;
+        case 'single-card':
+            include 'views/users/single-card.php';
+            break;
+        case 'single-washing':
+            include 'views/users/single-washing.php';
+            break;
+        case 'product-detail':
+            include 'views/users/product-detail.php';
+            break;
+        case 'order-detail':
+            include 'views/users/order-detail.php';
+            break;
+        case 'search':
+            include 'views/users/search.php';
             break;
         default:
-            // 404 - page not found
             include 'views/users/404.php';
             break;
     }
 } else {
-    // Database connection failed, show error page
     echo "<!DOCTYPE html>
     <html lang='en'>
     <head>

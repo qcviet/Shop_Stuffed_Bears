@@ -32,7 +32,7 @@ try {
                     throw new Exception('Order ID and status are required');
                 }
                 
-                $valid_statuses = ['Chờ xác nhận', 'Đang giao', 'Đã giao', 'Đã hủy'];
+                $valid_statuses = ['Chờ xác nhận', 'Đã xác nhận', 'Đang giao', 'Đã giao', 'Đã hủy'];
                 if (!in_array($status, $valid_statuses)) {
                     throw new Exception('Invalid status');
                 }
@@ -74,7 +74,15 @@ try {
                 if (empty($order_id)) {
                     throw new Exception('Order ID is required');
                 }
-                
+                // Only allow deleting orders that are already cancelled
+                $order = $orderModel->getById($order_id);
+                if (!$order) {
+                    throw new Exception('Order not found');
+                }
+                if (($order['status'] ?? '') !== 'Đã hủy') {
+                    throw new Exception('Chỉ được phép xóa đơn hàng đã hủy');
+                }
+
                 if ($orderModel->delete($order_id)) {
                     $response = ['success' => true, 'message' => 'Order deleted successfully'];
                 } else {
@@ -92,7 +100,8 @@ try {
             
             $order = $orderModel->getById($order_id);
             if ($order) {
-                $response = ['success' => true, 'data' => $order];
+                $items = $orderModel->getItemsByOrder($order_id);
+                $response = ['success' => true, 'data' => $order, 'items' => $items];
             } else {
                 throw new Exception('Order not found');
             }
@@ -103,9 +112,10 @@ try {
             $limit = 10;
             $offset = ($page - 1) * $limit;
             $status = $_GET['status'] ?? null;
-            
-            $orders = $orderModel->getAll($limit, $offset, $status);
-            $total = $orderModel->getCount(null, $status);
+            $payment_status = $_GET['payment_status'] ?? null;
+
+            $orders = $orderModel->getAll($limit, $offset, $status, $payment_status);
+            $total = $orderModel->getCount(null, $status, $payment_status);
             
             $response = [
                 'success' => true, 

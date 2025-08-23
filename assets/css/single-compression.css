@@ -1,0 +1,39 @@
+.single-compression__title{
+    color: var(--single-text-color);
+    font-size:30px;
+}
+
+.single-compression__subtitle{
+    color: var(--single-text-color);
+    font-size:20px;
+    width: 60%;
+    margin: 0 auto;
+}
+.single-compression__image{
+    width: 60%;
+    margin: 0 auto;
+}
+
+.single-compression__description{
+    color: var(--single-text-color);
+    font-size: 20px;
+    max-width: 60%;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .single-compression__title{
+        font-size: 20px;
+    }
+    .single-compression__subtitle{
+        width: 100%;
+        font-size: 16px;
+    }
+    .single-compression__image{
+        width: 100%;
+    }   
+    .single-compression__description{
+        font-size: 18px;
+        max-width: 100%;
+    }
+}

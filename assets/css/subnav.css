@@ -3,7 +3,6 @@
     background-color: var(--primary-color);
     position: sticky;
     top: 0;
-    z-index: 1000;
 }
 
 .subnav-menu__item a{

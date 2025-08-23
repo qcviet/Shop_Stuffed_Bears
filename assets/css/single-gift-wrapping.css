@@ -1,0 +1,30 @@
+.single-gift-wrapping__title {
+    color: var(--single-text-color);
+    font-size: 30px;
+}
+
+.single-gift-wrapping__description {
+    color: var(--single-text-color);
+    font-size: 20px;
+    max-width: 60%;
+    margin: 0px auto;
+}
+
+
+.single-gift-wrapping__image {
+    width: 60%;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .single-gift-wrapping__title{
+        font-size: 20px;
+    }
+    .single-gift-wrapping__image{
+        width: 100%;
+    }
+    .single-gift-wrapping__description{
+        font-size: 18px;
+        max-width: 100%;
+    }
+}

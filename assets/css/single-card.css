@@ -1,0 +1,30 @@
+.single-card__title {
+    color: var(--single-text-color);
+    font-size: 30px;
+}
+
+
+.single-card__description {
+    color: var(--single-text-color);
+    font-size: 20px;
+    max-width: 60%;
+    margin: 0 auto;
+}
+
+.single-card__image {
+    width: 60%;
+    margin: 0 auto;
+} 
+
+@media (max-width: 768px) {
+    .single-card__title{
+        font-size: 20px;
+    }
+    .single-card__image{
+        width: 100%;
+    }
+    .single-card__description{
+        font-size: 18px;
+        max-width: 100%;
+    }
+}

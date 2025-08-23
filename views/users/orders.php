@@ -15,6 +15,17 @@ if (!isset($_SESSION['user_id'])) {
 // Get user orders
 require_once __DIR__ . '/../../controller/AppController.php';
 $app = new AppController();
+
+// Handle cancel request
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $cancelId = intval($_POST['cancel_order_id'] ?? 0);
+    if ($cancelId > 0) {
+        $app->cancelUserOrder($_SESSION['user_id'], $cancelId);
+        // Refresh to reflect changes
+        header('Location: ' . BASE_URL . '/?page=orders');
+        exit;
+    }
+}
 $orders = $app->getOrdersByUser($_SESSION['user_id']);
 ?>
 
@@ -64,6 +75,7 @@ $orders = $app->getOrdersByUser($_SESSION['user_id']);
             font-weight: 600;
         }
         .status-pending { background-color: #fff3cd; color: #856404; }
+        .status-confirmed { background-color: #dbeafe; color: #1d4ed8; }
         .status-shipping { background-color: #cce5ff; color: #004085; }
         .status-delivered { background-color: #d4edda; color: #155724; }
         .status-cancelled { background-color: #f8d7da; color: #721c24; }
@@ -84,6 +96,7 @@ $orders = $app->getOrdersByUser($_SESSION['user_id']);
                             <p class="mb-0">Xem lịch sử đơn hàng và trạng thái giao hàng</p>
                         </div>
 
+                        <?php include __DIR__ . '/header.php'; ?>
                         <div class="p-4">
                             <?php if (empty($orders)): ?>
                                 <div class="text-center py-5">
@@ -120,6 +133,9 @@ $orders = $app->getOrdersByUser($_SESSION['user_id']);
                                                         switch ($order['status']) {
                                                             case 'Chờ xác nhận':
                                                                 $statusClass = 'status-pending';
+                                                                break;
+                                                            case 'Đã xác nhận':
+                                                                $statusClass = 'status-confirmed';
                                                                 break;
                                                             case 'Đang giao':
                                                                 $statusClass = 'status-shipping';
@@ -176,6 +192,7 @@ $orders = $app->getOrdersByUser($_SESSION['user_id']);
                                 </a>
                             </div>
                         </div>
+                        <?php include __DIR__ . '/footer.php'; ?>
                     </div>
                 </div>
             </div>
@@ -185,13 +202,21 @@ $orders = $app->getOrdersByUser($_SESSION['user_id']);
     <script src="<?php echo BOOTSTRAP_JS; ?>"></script>
     <script>
         function viewOrderDetails(orderId) {
-            alert('Chức năng xem chi tiết đơn hàng sẽ được phát triển sau.');
+            window.location.href = '<?php echo BASE_URL; ?>/?page=order-detail&order_id=' + orderId;
         }
-        
+
         function cancelOrder(orderId) {
-            if (confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) {
-                alert('Chức năng hủy đơn hàng sẽ được phát triển sau.');
-            }
+            if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '<?php echo BASE_URL; ?>/?page=orders';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'cancel_order_id';
+            input.value = String(orderId);
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
         }
     </script>
 </body>

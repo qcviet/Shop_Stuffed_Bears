@@ -140,10 +140,70 @@ try {
                     throw new Exception('Cannot delete admin users');
                 }
                 
-                if ($userModel->delete($user_id)) {
-                    $response = ['success' => true, 'message' => 'User deleted successfully'];
-                } else {
-                    throw new Exception('Failed to delete user');
+                // Check what data will be deleted
+                $orderCount = 0;
+                $cartCount = 0;
+                try {
+                    $stmt = $db->prepare("SELECT COUNT(*) as count FROM orders WHERE user_id = :user_id");
+                    $stmt->execute([':user_id' => $user_id]);
+                    $orderCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                    
+                    $stmt = $db->prepare("SELECT COUNT(*) as count FROM cart WHERE user_id = :user_id");
+                    $stmt->execute([':user_id' => $user_id]);
+                    $cartCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                } catch (Exception $e) {
+                    // Ignore errors in counting
+                }
+                
+                // Start transaction for safe deletion
+                $db->beginTransaction();
+                try {
+                    // Delete cart items first
+                    $stmt = $db->prepare("DELETE ci FROM cart_items ci INNER JOIN cart c ON ci.cart_id = c.cart_id WHERE c.user_id = :user_id");
+                    $stmt->execute([':user_id' => $user_id]);
+                    
+                    // Delete cart
+                    $stmt = $db->prepare("DELETE FROM cart WHERE user_id = :user_id");
+                    $stmt->execute([':user_id' => $user_id]);
+                    
+                    // Delete order items first
+                    $stmt = $db->prepare("DELETE oi FROM order_items oi INNER JOIN orders o ON oi.order_id = o.order_id WHERE o.user_id = :user_id");
+                    $stmt->execute([':user_id' => $user_id]);
+                    
+                    // Delete orders
+                    $stmt = $db->prepare("DELETE FROM orders WHERE user_id = :user_id");
+                    $stmt->execute([':user_id' => $user_id]);
+                    
+                    // Now delete the user
+                    if ($userModel->delete($user_id)) {
+                        $db->commit();
+                        
+                        // Get updated counts after deletion
+                        ensureStatusColumn($db);
+                        $counts = ['total' => (int)$userModel->getCount(), 'active' => 0, 'inactive' => 0, 'pending' => 0];
+                        try {
+                            $q = $db->query("SELECT COALESCE(status,'active') as status, COUNT(*) as c FROM users GROUP BY COALESCE(status,'active')");
+                            while ($row = $q->fetch(PDO::FETCH_ASSOC)) {
+                                $counts[strtolower($row['status'])] = (int)$row['c'];
+                            }
+                        } catch (Exception $e) {}
+                        
+                        $deletedInfo = [];
+                        if ($orderCount > 0) $deletedInfo[] = "$orderCount order(s)";
+                        if ($cartCount > 0) $deletedInfo[] = "$cartCount cart item(s)";
+                        
+                        $message = 'User deleted successfully';
+                        if (!empty($deletedInfo)) {
+                            $message .= '. Also deleted: ' . implode(', ', $deletedInfo);
+                        }
+                        
+                        $response = ['success' => true, 'message' => $message, 'status_counts' => $counts];
+                    } else {
+                        throw new Exception('Failed to delete user');
+                    }
+                } catch (Exception $e) {
+                    $db->rollBack();
+                    throw new Exception('Failed to delete user: ' . $e->getMessage());
                 }
             }
             break;

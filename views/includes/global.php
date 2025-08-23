@@ -25,13 +25,16 @@ if (session_status() === PHP_SESSION_NONE) {
     <link rel="stylesheet" href="<?php echo BOOTSTRAP_CSS; ?>">
     <link rel="stylesheet" href="<?php echo BOOTSTRAP_ICONS; ?>">
     <link rel="stylesheet" href="<?php echo CUSTOM_CSS; ?>">
+    <link rel="stylesheet" href="<?php echo CHATBOT_CSS; ?>">
 </head>
 
 <body>
+
+
     <script src="<?php echo JQUERY_JS; ?>"></script>
     <script src="<?php echo BOOTSTRAP_JS; ?>"></script>
     <script src="<?php echo CUSTOM_JS; ?>"></script>
-    <script src="<?php echo BASE_URL; ?>/assets/js/header-dropdown.js"></script>
+    <script src="<?php echo CHATBOT_JS; ?>"></script>
 </body>
 
 </html>

@@ -1,11 +1,17 @@
+
+@import url('variables.css');
 @import url('header.css');
 @import url('footer.css');
-@import url('variables.css');
-@import url('about-page.css');
-@import url('home-page.css');
 @import url('subnav.css');
 @import url('new-products.css');
 @import url('new-topic.css');
 @import url('collection-slider.css');
+@import url('intro-slider.css');
 @import url('single-ship.css');
-@import url('product-detail.css');
+@import url('single-compression.css');
+@import url('single-gift-wrapping.css');
+@import url('single-washing.css');
+@import url('single-card.css');
+@import url('product.css');
+@import url('cart.css');
+@import url('search.css');

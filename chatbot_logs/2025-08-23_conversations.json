@@ -1,0 +1,24 @@
+[
+    {
+        "timestamp": "2025-08-23 19:13:51",
+        "session_id": "session_1755969051152_6s325q67w",
+        "user_id": 31,
+        "conversation": [
+            {
+                "type": "bot",
+                "content": "Xin ch\u00e0o! T\u00f4i l\u00e0 tr\u1ee3 l\u00fd c\u1ee7a Shop Gau Yeu. T\u00f4i c\u00f3 th\u1ec3 gi\u00fap b\u1ea1n:",
+                "timestamp": "2025-08-23 19:13:51"
+            }
+        ],
+        "analytics": {
+            "messagesSent": 1,
+            "messagesReceived": 0,
+            "sessionStart": "2025-08-23T17:10:51.149Z",
+            "featuresUsed": {
+                "chatbot_loaded": 1
+            }
+        },
+        "ip_address": "::1",
+        "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/139.0.0.0 Safari\/537.36 Edg\/139.0.0.0"
+    }
+]
