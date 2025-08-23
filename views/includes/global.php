@@ -25,6 +25,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <link rel="stylesheet" href="<?php echo BOOTSTRAP_CSS; ?>">
     <link rel="stylesheet" href="<?php echo BOOTSTRAP_ICONS; ?>">
     <link rel="stylesheet" href="<?php echo CUSTOM_CSS; ?>">
+    <link rel="stylesheet" href="<?php echo CHATBOT_CSS; ?>">
 </head>
 
 <body>
@@ -33,6 +34,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <script src="<?php echo JQUERY_JS; ?>"></script>
     <script src="<?php echo BOOTSTRAP_JS; ?>"></script>
     <script src="<?php echo CUSTOM_JS; ?>"></script>
+    <script src="<?php echo CHATBOT_JS; ?>"></script>
 </body>
 
 </html>
