@@ -1,0 +1,15 @@
+.single-gift-wrapping__title {
+    color: var(--single-text-color);
+    font-size: 30px;
+}
+
+.single-gift-wrapping__description {
+    color: var(--single-text-color);
+    font-size: 20px;
+    margin: 20px 0;
+}
+
+.single-gift-wrapping__image {
+    width: 60%;
+    margin: 0 auto;
+}

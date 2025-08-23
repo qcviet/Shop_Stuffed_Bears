@@ -102,7 +102,6 @@ if ($conn) {
         case 'search':
         case 'help':
         case 'contact':
-            // Show coming soon page for pages that don't exist yet
             include 'views/users/coming-soon.php';
             break;
         case 'login':
@@ -118,17 +117,29 @@ if ($conn) {
             include 'views/users/logout.php';
             break;
         case 'orders':
-            // Redirect to profile page with orders tab
             header('Location: ' . BASE_URL . '?page=profile#orders');
             exit;
             break;
+        case 'single-compression':
+            include 'views/users/single-compression.php';
+            break;
+        case 'single-ship':
+            include 'views/users/single-ship.php';
+            break;
+        case 'single-gift-wrapping':
+            include 'views/users/single-gift-wrapping.php';
+            break;
+        case 'single-card':
+            include 'views/users/single-card.php';
+            break;
+        case 'single-washing':
+            include 'views/users/single-washing.php';
+            break;
         default:
-            // 404 - page not found
             include 'views/users/404.php';
             break;
     }
 } else {
-    // Database connection failed, show error page
     echo "<!DOCTYPE html>
     <html lang='en'>
     <head>

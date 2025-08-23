@@ -9,8 +9,8 @@
 ?>
 
 
-<?php include '../includes/global.php'; ?>
-<?php include 'header.php'; ?>
+<?php include __DIR__ . '/../includes/global.php'; ?>
+<?php include __DIR__ . '/header.php'; ?>
 
 <div class="container">
     <div class="row">
@@ -56,4 +56,4 @@
     </div>
 </div>
 
-<?php include 'footer.php'; ?>
+<?php include __DIR__ . '/footer.php'; ?>

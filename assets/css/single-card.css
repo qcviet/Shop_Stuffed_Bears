@@ -1,0 +1,15 @@
+.single-card__title {
+    color: var(--single-text-color);
+    font-size: 30px;
+}
+
+.single-card__description {
+    color: var(--single-text-color);
+    font-size: 20px;
+    margin: 20px 0;
+}
+
+.single-card__image {
+    width: 60%;
+    margin: 0 auto;
+} 

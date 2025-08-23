@@ -1,0 +1,22 @@
+.single-compression__title{
+    color: var(--single-text-color);
+    font-size:30px;
+}
+
+.single-compression__subtitle{
+    color: var(--single-text-color);
+    font-size:20px;
+    width: 60%;
+    margin: 0 auto;
+}
+
+.single-compression__description{
+    color: var(--single-text-color);
+    font-size:20px;
+    margin: 20px 0;
+}
+
+.single-compression__image{
+    width: 60%;
+    margin: 0 auto;
+}

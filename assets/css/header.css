@@ -3,7 +3,6 @@
   background-color: var(--white);
   transition: transform 0.3s ease-in-out;
   position: relative;
-  z-index: 999;
   overflow: visible;
 }
 
@@ -154,13 +153,13 @@
   visibility: hidden;
   transform: translateY(-10px);
   transition: all 0.3s ease;
-  z-index: 9999;
   list-style: none;
   padding: 8px 0;
   margin: 0;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow: visible;
   margin-top: 8px;
+  z-index: 1000;
 }
 
 .user-menu__dropdown.show {
