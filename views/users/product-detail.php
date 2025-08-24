@@ -18,6 +18,11 @@ if (!$productId || !$productModel) {
 
 $product = $productModel->getById($productId);
 $variants = $variantModel ? $variantModel->getByProductId($productId) : [];
+
+// Get product with promotions
+$productWithPromotions = $productModel->getProductWithPromotionsById($productId);
+$discountInfo = $productModel->calculateDiscountedPrice($productId);
+
 // Load product-level colors
 $colors = [];
 try {
@@ -61,8 +66,41 @@ include __DIR__ . '/header.php';
             <div class="card product-card">
                 <div class="card-body">
                     <h3 class="card-title mb-2"><?php echo htmlspecialchars($product['product_name'] ?? ''); ?></h3>
-                    <?php $defaultPrice = isset($variants[0]['price']) ? (float)$variants[0]['price'] : (float)($product['price'] ?? 0); ?>
-                    <div class="product-price h4 mb-3"><span id="js-price" data-price="<?php echo htmlspecialchars((string)$defaultPrice); ?>"><?php echo number_format($defaultPrice, 0, ',', '.'); ?></span> ₫</div>
+                    
+                    <?php 
+                    $defaultPrice = isset($variants[0]['price']) ? (float)$variants[0]['price'] : (float)($product['price'] ?? 0);
+                    $hasDiscount = $discountInfo && $discountInfo['discount_percent'] > 0;
+                    ?>
+                    
+                    <div class="product-price mb-3">
+                        <?php if ($hasDiscount): ?>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="h4 text-danger" id="js-price" data-price="<?php echo htmlspecialchars((string)$discountInfo['discounted_min_price']); ?>">
+                                    <?php echo number_format($discountInfo['discounted_min_price'], 0, ',', '.'); ?>
+                                </span>
+                                <span class="h6 text-muted text-decoration-line-through">
+                                    <?php echo number_format($discountInfo['original_min_price'], 0, ',', '.'); ?>
+                                </span>
+                                <span class="badge bg-danger fs-6">
+                                    -<?php echo $discountInfo['discount_percent']; ?>%
+                                </span>
+                            </div>
+                            <?php if ($discountInfo['promotion_title']): ?>
+                                <div class="alert alert-info py-2 px-3 mt-2 mb-0">
+                                    <i class="fas fa-gift me-2"></i>
+                                    <strong><?php echo htmlspecialchars($discountInfo['promotion_title']); ?></strong>
+                                    <?php if ($discountInfo['promotion_description']): ?>
+                                        <br><small><?php echo htmlspecialchars($discountInfo['promotion_description']); ?></small>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div class="h4" id="js-price" data-price="<?php echo htmlspecialchars((string)$defaultPrice); ?>">
+                                <?php echo number_format($defaultPrice, 0, ',', '.'); ?> ₫
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
                     <div class="mb-3 product-meta">Danh mục: <?php echo htmlspecialchars($product['category_name'] ?? ''); ?> • Kho: <?php echo (int)($product['stock'] ?? 0); ?></div>
 
                     <?php if (!empty($variants)): ?>

@@ -14,6 +14,15 @@ $userId = $_SESSION['user_id'];
 $user = $app->getUserById($userId);
 $items = $app->getCartWithItems($userId) ?: [];
 $total = $app->getCartTotal($userId);
+
+// Get cart total with promotions
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../models/CartModel.php';
+$database = new Database();
+$db = $database->getConnection();
+$cartModel = new CartModel($db);
+$cartTotalWithPromotions = $cartModel->calculateCartTotalWithPromotions($userId);
+
 $error = '';
 $orderId = null;
 
@@ -36,8 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'address' => $address,
         ]);
 
+        // Use discounted total for order creation
+        $orderTotal = $cartTotalWithPromotions['total'];
+        
         // Always create order as unpaid; payment gateways will update upon success
-        $orderId = $app->checkoutCart($userId, $payment_method, false);
+        $orderId = $app->checkoutCart($userId, $payment_method, false, $orderTotal);
         
         if ($orderId) {
             if ($payment_method === 'VNPAY') {
@@ -136,18 +148,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
-                            <div class="d-flex justify-content-between mt-3">
-                                <div class="fw-semibold">Tạm tính</div>
-                                <div id="orderSubtotal" data-total="<?php echo (float)$total; ?>"><?php echo number_format((float)$total, 0, ',', '.'); ?> ₫</div>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <div class="fw-semibold">Phí vận chuyển</div>
-                                <div>Miễn phí</div>
-                            </div>
-                            <hr/>
-                            <div class="d-flex justify-content-between h5">
-                                <div>Tổng</div>
-                                <div id="orderTotal" data-total="<?php echo (float)$total; ?>"><?php echo number_format((float)$total, 0, ',', '.'); ?> ₫</div>
+                            
+                            <!-- Order Summary with Promotions -->
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between">
+                                    <div class="fw-semibold">Tạm tính</div>
+                                    <div id="orderSubtotal" data-total="<?php echo (float)$cartTotalWithPromotions['subtotal']; ?>">
+                                        <?php echo number_format((float)$cartTotalWithPromotions['subtotal'], 0, ',', '.'); ?> ₫
+                                    </div>
+                                </div>
+                                
+                                <?php if ($cartTotalWithPromotions['discount_amount'] > 0): ?>
+                                    <div class="d-flex justify-content-between text-success">
+                                        <div class="fw-semibold">Giảm giá</div>
+                                        <div>-<?php echo number_format($cartTotalWithPromotions['discount_amount'], 0, ',', '.'); ?> ₫
+                                            <span class="badge bg-success ms-1">-<?php echo number_format($cartTotalWithPromotions['discount_percent'], 1); ?>%</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Applied Promotions -->
+                                    <?php if (!empty($cartTotalWithPromotions['applied_promotions'])): ?>
+                                        <div class="alert alert-info py-2 px-3 mt-2 mb-2">
+                                            <i class="fas fa-gift me-2"></i>
+                                            <strong>Khuyến mãi đã áp dụng:</strong>
+                                            <?php foreach ($cartTotalWithPromotions['applied_promotions'] as $promotion): ?>
+                                                <div class="small">
+                                                    • <?php echo htmlspecialchars($promotion['title']); ?> 
+                                                    (<?php echo htmlspecialchars($promotion['product_name']); ?>)
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                                
+                                <div class="d-flex justify-content-between">
+                                    <div class="fw-semibold">Phí vận chuyển</div>
+                                    <div>Miễn phí</div>
+                                </div>
+                                <hr/>
+                                <div class="d-flex justify-content-between h5">
+                                    <div>Tổng</div>
+                                    <div id="orderTotal" data-total="<?php echo (float)$cartTotalWithPromotions['total']; ?>">
+                                        <?php echo number_format((float)$cartTotalWithPromotions['total'], 0, ',', '.'); ?> ₫
+                                    </div>
+                                </div>
                             </div>
 
                             

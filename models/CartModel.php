@@ -207,5 +207,115 @@ class CartModel {
         $stmt->bindParam(":cart_id", $cart_id);
         return $stmt->execute();
     }
+
+    /**
+     * Calculate cart total with promotions applied
+     */
+    public function calculateCartTotalWithPromotions($user_id) {
+        try {
+            $cartItems = $this->getCartWithItems($user_id);
+            if (empty($cartItems)) {
+                return [
+                    'subtotal' => 0,
+                    'discount_amount' => 0,
+                    'discount_percent' => 0,
+                    'total' => 0,
+                    'applied_promotions' => []
+                ];
+            }
+
+            $subtotal = 0;
+            $appliedPromotions = [];
+            $totalDiscountAmount = 0;
+
+            foreach ($cartItems as $item) {
+                if (!$item['variant_id']) continue;
+                
+                $itemTotal = $item['price'] * $item['quantity'];
+                $subtotal += $itemTotal;
+
+                // Get promotions for this product
+                $productPromotions = $this->getProductPromotions($item['product_id']);
+                
+                foreach ($productPromotions as $promotion) {
+                    $discountAmount = $itemTotal * ($promotion['discount_percent'] / 100);
+                    $totalDiscountAmount += $discountAmount;
+                    
+                    $appliedPromotions[] = [
+                        'promotion_id' => $promotion['promotion_id'],
+                        'title' => $promotion['title'],
+                        'description' => $promotion['description'],
+                        'discount_percent' => $promotion['discount_percent'],
+                        'discount_amount' => $discountAmount,
+                        'product_name' => $item['product_name']
+                    ];
+                }
+            }
+
+            $total = $subtotal - $totalDiscountAmount;
+            $discountPercent = $subtotal > 0 ? ($totalDiscountAmount / $subtotal) * 100 : 0;
+
+            return [
+                'subtotal' => $subtotal,
+                'discount_amount' => $totalDiscountAmount,
+                'discount_percent' => $discountPercent,
+                'total' => $total,
+                'applied_promotions' => $appliedPromotions
+            ];
+        } catch (PDOException $e) {
+            error_log("CartModel calculateCartTotalWithPromotions error: " . $e->getMessage());
+            return [
+                'subtotal' => 0,
+                'discount_amount' => 0,
+                'discount_percent' => 0,
+                'total' => 0,
+                'applied_promotions' => []
+            ];
+        }
+    }
+
+    /**
+     * Get promotions applicable to a product
+     */
+    private function getProductPromotions($product_id) {
+        try {
+            // First get the product to know its category
+            $stmt = $this->conn->prepare("
+                SELECT p.product_id, p.category_id 
+                FROM products p 
+                WHERE p.product_id = :product_id
+            ");
+            $stmt->bindValue(':product_id', $product_id, PDO::PARAM_INT);
+            $stmt->execute();
+            $product = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$product) {
+                return [];
+            }
+
+            // Get applicable promotions
+            $stmt = $this->conn->prepare("
+                SELECT pr.*
+                FROM promotions pr
+                WHERE pr.is_active = 1 
+                AND pr.start_date <= CURDATE() 
+                AND pr.end_date >= CURDATE()
+                AND (
+                    pr.promotion_type = 'general' OR
+                    (pr.promotion_type = 'category' AND pr.target_id = :category_id) OR
+                    (pr.promotion_type = 'product' AND pr.target_id = :product_id)
+                )
+                ORDER BY pr.discount_percent DESC
+            ");
+            $stmt->bindValue(':product_id', $product_id, PDO::PARAM_INT);
+            $stmt->bindValue(':category_id', $product['category_id'], PDO::PARAM_INT);
+            $stmt->execute();
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("CartModel getProductPromotions error: " . $e->getMessage());
+            return [];
+        }
+    }
 }
 ?> 

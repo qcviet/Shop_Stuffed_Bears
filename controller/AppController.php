@@ -329,15 +329,13 @@ class AppController {
     }
 
     /**
-     * Checkout the current user's cart and create an order with items.
-     * - Validates stock at variant level
-     * - Calculates total from variant prices
+     * Checkout cart and create order
      * - Inserts into orders and order_items
      * - Decrements variant stock
      * - Clears cart
      * Returns created order_id on success, or false on failure
      */
-    public function checkoutCart($user_id, $payment_method = 'COD', $markPaid = false) {
+    public function checkoutCart($user_id, $payment_method = 'COD', $markPaid = false, $discounted_total = null) {
         if (!$this->isConnected()) return false;
 
         // Get cart and items
@@ -366,10 +364,13 @@ class AppController {
                 $total += $lineTotal;
             }
 
+            // Use discounted total if provided, otherwise use calculated total
+            $finalTotal = $discounted_total !== null ? (float)$discounted_total : $total;
+
             // Create order
             $status = 'Chờ xác nhận';
             $payment_status = $markPaid ? 'Đã thanh toán' : 'Chưa thanh toán';
-            if (!$this->orderModel->create($user_id, $total, $status, $payment_status)) {
+            if (!$this->orderModel->create($user_id, $finalTotal, $status, $payment_status)) {
                 throw new Exception('Failed to create order');
             }
             $orderId = (int)$this->db->lastInsertId();

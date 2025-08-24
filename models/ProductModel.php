@@ -430,6 +430,175 @@ class ProductModel {
         return $result['count'];
     }
 
+    /**
+     * Get products with applied promotions
+     */
+    public function getProductsWithPromotions($limit = 10, $offset = 0, $category_id = null) {
+        try {
+            $sql = "SELECT p.*, c.category_name, 
+                           COALESCE(prom.discount_percent, 0) as discount_percent,
+                           prom.promotion_type,
+                           prom.title as promotion_title
+                    FROM products p
+                    LEFT JOIN categories c ON p.category_id = c.category_id
+                    LEFT JOIN (
+                        SELECT pr.*, 
+                               CASE 
+                                   WHEN pr.promotion_type = 'general' THEN 1
+                                   WHEN pr.promotion_type = 'category' AND pr.target_id = p.category_id THEN 1
+                                   WHEN pr.promotion_type = 'product' AND pr.target_id = p.product_id THEN 1
+                                   ELSE 0
+                               END as is_applicable
+                        FROM promotions pr
+                        WHERE pr.is_active = 1 
+                        AND pr.start_date <= CURDATE() 
+                        AND pr.end_date >= CURDATE()
+                    ) prom ON (
+                        prom.promotion_type = 'general' OR
+                        (prom.promotion_type = 'category' AND prom.target_id = p.category_id) OR
+                        (prom.promotion_type = 'product' AND prom.target_id = p.product_id)
+                    )";
+            
+            if ($category_id) {
+                $sql .= " WHERE p.category_id = :category_id";
+            }
+            
+            $sql .= " ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
+            
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            
+            if ($category_id) {
+                $stmt->bindValue(':category_id', $category_id, PDO::PARAM_INT);
+            }
+            
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("ProductModel getProductsWithPromotions error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get product with applied promotions by ID
+     */
+    public function getProductWithPromotionsById($product_id) {
+        try {
+            $sql = "SELECT p.*, c.category_name, 
+                           COALESCE(prom.discount_percent, 0) as discount_percent,
+                           prom.promotion_type,
+                           prom.title as promotion_title,
+                           prom.description as promotion_description
+                    FROM products p
+                    LEFT JOIN categories c ON p.category_id = c.category_id
+                    LEFT JOIN (
+                        SELECT pr.*
+                        FROM promotions pr
+                        WHERE pr.is_active = 1 
+                        AND pr.start_date <= CURDATE() 
+                        AND pr.end_date >= CURDATE()
+                        AND (
+                            pr.promotion_type = 'general' OR
+                            (pr.promotion_type = 'category' AND pr.target_id = :category_id) OR
+                            (pr.promotion_type = 'product' AND pr.target_id = :product_id)
+                        )
+                        ORDER BY pr.discount_percent DESC
+                        LIMIT 1
+                    ) prom ON 1=1
+                    WHERE p.product_id = :product_id";
+            
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':product_id', $product_id, PDO::PARAM_INT);
+            $stmt->bindValue(':category_id', $product_id, PDO::PARAM_INT); // This will be updated with actual category_id
+            
+            $stmt->execute();
+            $product = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($product) {
+                // Get the actual category_id and update the query
+                $category_id = $product['category_id'];
+                $stmt = $this->conn->prepare("
+                    SELECT p.*, c.category_name, 
+                           COALESCE(prom.discount_percent, 0) as discount_percent,
+                           prom.promotion_type,
+                           prom.title as promotion_title,
+                           prom.description as promotion_description
+                    FROM products p
+                    LEFT JOIN categories c ON p.category_id = c.category_id
+                    LEFT JOIN (
+                        SELECT pr.*
+                        FROM promotions pr
+                        WHERE pr.is_active = 1 
+                        AND pr.start_date <= CURDATE() 
+                        AND pr.end_date >= CURDATE()
+                        AND (
+                            pr.promotion_type = 'general' OR
+                            (pr.promotion_type = 'category' AND pr.target_id = :category_id) OR
+                            (pr.promotion_type = 'product' AND pr.target_id = :product_id)
+                        )
+                        ORDER BY pr.discount_percent DESC
+                        LIMIT 1
+                    ) prom ON 1=1
+                    WHERE p.product_id = :product_id
+                ");
+                $stmt->bindValue(':product_id', $product_id, PDO::PARAM_INT);
+                $stmt->bindValue(':category_id', $category_id, PDO::PARAM_INT);
+                $stmt->execute();
+                $product = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+            
+            return $product;
+        } catch (PDOException $e) {
+            error_log("ProductModel getProductWithPromotionsById error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Calculate discounted price for a product
+     */
+    public function calculateDiscountedPrice($product_id) {
+        try {
+            $product = $this->getProductWithPromotionsById($product_id);
+            if (!$product) {
+                return null;
+            }
+            
+            // Get the base price from variants
+            $stmt = $this->conn->prepare("
+                SELECT MIN(price) as min_price, MAX(price) as max_price 
+                FROM product_variants 
+                WHERE product_id = :product_id
+            ");
+            $stmt->bindValue(':product_id', $product_id, PDO::PARAM_INT);
+            $stmt->execute();
+            $priceInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$priceInfo) {
+                return null;
+            }
+            
+            $discount_percent = $product['discount_percent'] ?? 0;
+            
+            $result = [
+                'original_min_price' => $priceInfo['min_price'],
+                'original_max_price' => $priceInfo['max_price'],
+                'discount_percent' => $discount_percent,
+                'discounted_min_price' => $priceInfo['min_price'] * (1 - $discount_percent / 100),
+                'discounted_max_price' => $priceInfo['max_price'] * (1 - $discount_percent / 100),
+                'promotion_title' => $product['promotion_title'] ?? null,
+                'promotion_description' => $product['promotion_description'] ?? null
+            ];
+            
+            return $result;
+        } catch (PDOException $e) {
+            error_log("ProductModel calculateDiscountedPrice error: " . $e->getMessage());
+            return null;
+        }
+    }
+
 
 }
 ?> 

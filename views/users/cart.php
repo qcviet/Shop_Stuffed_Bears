@@ -43,6 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $items = $app->getCartWithItems($_SESSION['user_id']) ?: [];
 $total = $app->getCartTotal($_SESSION['user_id']);
+
+// Get cart total with promotions
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../models/CartModel.php';
+$database = new Database();
+$db = $database->getConnection();
+$cartModel = new CartModel($db);
+$cartTotalWithPromotions = $cartModel->calculateCartTotalWithPromotions($_SESSION['user_id']);
 ?>
 
 <!DOCTYPE html>
@@ -117,7 +125,41 @@ $total = $app->getCartTotal($_SESSION['user_id']);
                     <input type="hidden" name="action" value="clear" />
                     <button class="btn btn-outline-secondary">Xóa giỏ hàng</button>
                 </form>
-                <div class="h5 mb-0">Tổng: <span id="grandTotal" data-total="<?php echo (float)$total; ?>"><?php echo number_format((float)$total, 0, ',', '.'); ?></span> ₫</div>
+                
+                <!-- Cart Summary with Promotions -->
+                <div class="cart-summary">
+                    <?php if ($cartTotalWithPromotions['discount_amount'] > 0): ?>
+                        <div class="text-end mb-2">
+                            <div class="text-muted">
+                                Tạm tính: <span class="text-decoration-line-through"><?php echo number_format($cartTotalWithPromotions['subtotal'], 0, ',', '.'); ?> ₫</span>
+                            </div>
+                            <div class="text-success">
+                                Giảm giá: -<?php echo number_format($cartTotalWithPromotions['discount_amount'], 0, ',', '.'); ?> ₫
+                                <span class="badge bg-success ms-1">-<?php echo number_format($cartTotalWithPromotions['discount_percent'], 1); ?>%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Applied Promotions -->
+                        <?php if (!empty($cartTotalWithPromotions['applied_promotions'])): ?>
+                            <div class="alert alert-info py-2 px-3 mb-2">
+                                <i class="fas fa-gift me-2"></i>
+                                <strong>Khuyến mãi đã áp dụng:</strong>
+                                <?php foreach ($cartTotalWithPromotions['applied_promotions'] as $promotion): ?>
+                                    <div class="small">
+                                        • <?php echo htmlspecialchars($promotion['title']); ?> 
+                                        (<?php echo htmlspecialchars($promotion['product_name']); ?>)
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    
+                    <div class="h5 mb-0">
+                        Tổng: <span id="grandTotal" data-total="<?php echo (float)$cartTotalWithPromotions['total']; ?>">
+                            <?php echo number_format((float)$cartTotalWithPromotions['total'], 0, ',', '.'); ?>
+                        </span> ₫
+                    </div>
+                </div>
             </div>
             <div class="mt-3 d-flex justify-content-end">
                 <a href="<?php echo BASE_URL; ?>/?page=checkout" class="btn btn-primary">Tiến hành thanh toán</a>
