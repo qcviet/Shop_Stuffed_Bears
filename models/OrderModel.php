@@ -135,20 +135,23 @@ class OrderModel {
 
         if ($limit) {
             $query .= " LIMIT :limit";
-            $params[':limit'] = $limit;
             if ($offset) {
                 $query .= " OFFSET :offset";
-                $params[':offset'] = $offset;
             }
         }
 
         $stmt = $this->conn->prepare($query);
 
+        // Bind search and filter parameters first
         foreach ($params as $key => $value) {
-            if ($key == ':limit' || $key == ':offset') {
-                $stmt->bindValue($key, $value, PDO::PARAM_INT);
-            } else {
-                $stmt->bindValue($key, $value);
+            $stmt->bindValue($key, $value);
+        }
+        
+        // Bind LIMIT and OFFSET parameters separately
+        if ($limit) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             }
         }
 
@@ -265,6 +268,138 @@ class OrderModel {
         $stmt->bindParam(":limit", $limit, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Search orders with enhanced functionality
+    public function search($search_term, $limit = null, $offset = null) {
+        return $this->searchOrders($search_term, '', '', $limit, $offset);
+    }
+
+    // Search orders with filters
+    public function searchOrders($search_query = '', $status = '', $payment_status = '', $limit = null, $offset = null) {
+        $query = "SELECT o.*, u.username, u.full_name, u.email, u.phone, u.address 
+                  FROM " . $this->table_name . " o 
+                  LEFT JOIN users u ON o.user_id = u.user_id 
+                  WHERE 1=1";
+        
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " AND (
+                o.order_id LIKE :search_query
+                OR o.order_id LIKE :search_start
+                OR u.username LIKE :search_query
+                OR u.username LIKE :search_start
+                OR u.username LIKE :search_end
+                OR u.username LIKE :search_words
+                OR u.full_name LIKE :search_query
+                OR u.full_name LIKE :search_start
+                OR u.full_name LIKE :search_end
+                OR u.email LIKE :search_query
+                OR u.email LIKE :search_start
+                OR u.email LIKE :search_end
+                OR u.phone LIKE :search_query
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        // Add status filter
+        if (!empty($status)) {
+            $query .= " AND o.status = :status";
+            $params[':status'] = $status;
+        }
+        
+        // Add payment status filter
+        if (!empty($payment_status)) {
+            $query .= " AND o.payment_status = :payment_status";
+            $params[':payment_status'] = $payment_status;
+        }
+        
+        $query .= " ORDER BY o.order_date DESC";
+        
+        if ($limit) {
+            $query .= " LIMIT :limit";
+            if ($offset) {
+                $query .= " OFFSET :offset";
+            }
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind search and filter parameters first
+        foreach ($params as $key => $value) {
+            $stmt->bindParam($key, $value);
+        }
+        
+        // Bind LIMIT and OFFSET parameters separately
+        if ($limit) {
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Get search count for pagination
+    public function getSearchCount($search_query = '', $status = '', $payment_status = '') {
+        $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " o 
+                  LEFT JOIN users u ON o.user_id = u.user_id 
+                  WHERE 1=1";
+        
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " AND (
+                o.order_id LIKE :search_query
+                OR o.order_id LIKE :search_start
+                OR u.username LIKE :search_query
+                OR u.username LIKE :search_start
+                OR u.username LIKE :search_end
+                OR u.username LIKE :search_words
+                OR u.full_name LIKE :search_query
+                OR u.full_name LIKE :search_start
+                OR u.full_name LIKE :search_end
+                OR u.email LIKE :search_query
+                OR u.email LIKE :search_start
+                OR u.email LIKE :search_end
+                OR u.phone LIKE :search_query
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        // Add status filter
+        if (!empty($status)) {
+            $query .= " AND o.status = :status";
+            $params[':status'] = $status;
+        }
+        
+        // Add payment status filter
+        if (!empty($payment_status)) {
+            $query .= " AND o.payment_status = :payment_status";
+            $params[':payment_status'] = $payment_status;
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind all parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindParam($key, $value);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['count'];
     }
 }
 ?> 

@@ -117,9 +117,11 @@ try {
             $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
             $limit = isset($_GET['limit']) ? max(1, min(50, (int)$_GET['limit'])) : 10;
             $offset = ($page - 1) * $limit;
+            $search = $_GET['search'] ?? '';
             
-            $categories = $categoryModel->getWithProductCount($limit, $offset);
-            $total = $categoryModel->getCount();
+            // Always use search methods for consistency, even when no search query
+            $categories = $categoryModel->searchCategories($search, $limit, $offset);
+            $total = $categoryModel->getSearchCount($search);
             
             $response = [
                 'success' => true, 

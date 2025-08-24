@@ -119,5 +119,97 @@ class CategoryModel {
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    // Search categories with enhanced functionality
+    public function search($search_term, $limit = null, $offset = null) {
+        return $this->searchCategories($search_term, $limit, $offset);
+    }
+
+    // Search categories
+    public function searchCategories($search_query = '', $limit = null, $offset = null) {
+        $query = "SELECT c.*, COUNT(p.product_id) as product_count 
+                  FROM " . $this->table_name . " c 
+                  LEFT JOIN products p ON c.category_id = p.category_id";
+        
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " WHERE (
+                c.category_name LIKE :search_query
+                OR c.category_name LIKE :search_start
+                OR c.category_name LIKE :search_end
+                OR c.category_name LIKE :search_words
+                OR c.description LIKE :search_query
+                OR c.description LIKE :search_start
+                OR c.description LIKE :search_end
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        $query .= " GROUP BY c.category_id ORDER BY c.category_name ASC";
+        
+        if ($limit) {
+            $query .= " LIMIT :limit";
+            if ($offset) {
+                $query .= " OFFSET :offset";
+            }
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind all parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindParam($key, $value);
+        }
+        
+        if ($limit) {
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Get search count for pagination
+    public function getSearchCount($search_query = '') {
+        $query = "SELECT COUNT(DISTINCT c.category_id) as count FROM " . $this->table_name . " c";
+        
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " WHERE (
+                c.category_name LIKE :search_query
+                OR c.category_name LIKE :search_start
+                OR c.category_name LIKE :search_end
+                OR c.category_name LIKE :search_words
+                OR c.description LIKE :search_query
+                OR c.description LIKE :search_start
+                OR c.description LIKE :search_end
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind all parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindParam($key, $value);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['count'];
+    }
 }
 ?> 

@@ -221,5 +221,114 @@ class UserModel {
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    // Search users with enhanced functionality
+    public function search($search_term, $limit = null, $offset = null) {
+        return $this->searchUsers($search_term, '', $limit, $offset);
+    }
+
+    // Search users with role filter
+    public function searchUsers($search_query = '', $role = '', $limit = null, $offset = null) {
+        $query = "SELECT * FROM " . $this->table_name . " WHERE 1=1";
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " AND (
+                username LIKE :search_query
+                OR username LIKE :search_start
+                OR username LIKE :search_end
+                OR username LIKE :search_words
+                OR email LIKE :search_query
+                OR email LIKE :search_start
+                OR email LIKE :search_end
+                OR full_name LIKE :search_query
+                OR full_name LIKE :search_start
+                OR full_name LIKE :search_end
+                OR phone LIKE :search_query
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        // Add role filter
+        if (!empty($role)) {
+            $query .= " AND role = :role";
+            $params[':role'] = $role;
+        }
+        
+        $query .= " ORDER BY created_at DESC";
+        
+        if ($limit) {
+            $query .= " LIMIT :limit";
+            if ($offset) {
+                $query .= " OFFSET :offset";
+            }
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind search and filter parameters first
+        foreach ($params as $key => $value) {
+            $stmt->bindParam($key, $value);
+        }
+        
+        // Bind LIMIT and OFFSET parameters separately
+        if ($limit) {
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Get search count for pagination
+    public function getSearchCount($search_query = '', $role = '') {
+        $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " WHERE 1=1";
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " AND (
+                username LIKE :search_query
+                OR username LIKE :search_start
+                OR username LIKE :search_end
+                OR username LIKE :search_words
+                OR email LIKE :search_query
+                OR email LIKE :search_start
+                OR email LIKE :search_end
+                OR full_name LIKE :search_query
+                OR full_name LIKE :search_start
+                OR full_name LIKE :search_end
+                OR phone LIKE :search_query
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        // Add role filter
+        if (!empty($role)) {
+            $query .= " AND role = :role";
+            $params[':role'] = $role;
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind all parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindParam($key, $value);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['count'];
+    }
 }
 ?> 

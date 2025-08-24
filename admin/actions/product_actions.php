@@ -304,9 +304,12 @@ try {
             $page = $_GET['page'] ?? 1;
             $limit = 10;
             $offset = ($page - 1) * $limit;
+            $search = $_GET['search'] ?? '';
+            $category_id = $_GET['category_id'] ?? '';
             
-            $products = $productModel->getAll($limit, $offset);
-            $total = $productModel->getCount();
+            // Always use search methods for consistency, even when no search query
+            $products = $productModel->searchProducts($search, $category_id, $limit, $offset);
+            $total = $productModel->getSearchCount($search, $category_id);
             
             $response = [
                 'success' => true, 

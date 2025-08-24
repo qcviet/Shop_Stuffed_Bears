@@ -366,20 +366,23 @@ class ProductModel {
         // Add pagination
         if ($limit) {
             $query .= " LIMIT :limit";
-            $params[':limit'] = $limit;
             if ($offset) {
                 $query .= " OFFSET :offset";
-                $params[':offset'] = $offset;
             }
         }
         
         $stmt = $this->conn->prepare($query);
         
+        // Bind search and filter parameters first
         foreach ($params as $key => $value) {
-            if ($key == ':limit' || $key == ':offset') {
-                $stmt->bindValue($key, $value, PDO::PARAM_INT);
-            } else {
-                $stmt->bindValue($key, $value);
+            $stmt->bindValue($key, $value);
+        }
+        
+        // Bind LIMIT and OFFSET parameters separately
+        if ($limit) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             }
         }
         

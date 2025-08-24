@@ -113,9 +113,11 @@ try {
             $offset = ($page - 1) * $limit;
             $status = $_GET['status'] ?? null;
             $payment_status = $_GET['payment_status'] ?? null;
+            $search = $_GET['search'] ?? '';
 
-            $orders = $orderModel->getAll($limit, $offset, $status, $payment_status);
-            $total = $orderModel->getCount(null, $status, $payment_status);
+            // Always use search methods for consistency, even when no search query
+            $orders = $orderModel->searchOrders($search, $status, $payment_status, $limit, $offset);
+            $total = $orderModel->getSearchCount($search, $status, $payment_status);
             
             $response = [
                 'success' => true, 

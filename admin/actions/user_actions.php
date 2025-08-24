@@ -229,9 +229,12 @@ try {
             $page = $_GET['page'] ?? 1;
             $limit = 10;
             $offset = ($page - 1) * $limit;
+            $search = $_GET['search'] ?? '';
+            $role = $_GET['role'] ?? '';
             
-            $users = $userModel->getAll($limit, $offset);
-            $total = $userModel->getCount();
+            // Always use search methods for consistency, even when no search query
+            $users = $userModel->searchUsers($search, $role, $limit, $offset);
+            $total = $userModel->getSearchCount($search, $role);
             
             // Remove passwords from response
             foreach ($users as &$user) {

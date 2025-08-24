@@ -11,6 +11,7 @@ class AdminCRUD {
         // Default order filters
         this._orderStatusFilter = '';
         this._orderPaymentFilter = '';
+        this.restoreSearchFormState();
         this.loadData();
     }
 
@@ -21,6 +22,11 @@ class AdminCRUD {
         $(document).on('click', '.delete-product-btn', (e) => this.deleteProduct(e));
         $(document).on('click', '.expand-variants-btn', (e) => this.toggleVariantsDetails(e));
         $(document).on('submit', '#productForm', (e) => this.saveProduct(e));
+        
+        // Product search events
+        $(document).on('submit', '#productSearchForm', (e) => this.handleProductSearch(e));
+        $(document).on('click', '#clearProductSearch', () => this.clearProductSearch());
+        
         // Variant events
         // Inline variant events
         $(document).on('click', '#addVariantRowInline', () => this.addVariantRowInline());
@@ -40,6 +46,10 @@ class AdminCRUD {
         $(document).on('click', '.edit-category-btn', (e) => this.editCategory(e));
         $(document).on('click', '.delete-category-btn', (e) => this.deleteCategory(e));
         $(document).on('submit', '#categoryForm', (e) => this.saveCategory(e));
+        
+        // Category search events
+        $(document).on('submit', '#categorySearchForm', (e) => this.handleCategorySearch(e));
+        $(document).on('click', '#clearCategorySearch', () => this.clearCategorySearch());
 
         // User events
         $(document).on('click', '.add-user-btn', () => this.showUserModal());
@@ -47,12 +57,20 @@ class AdminCRUD {
         $(document).on('click', '.delete-user-btn', (e) => this.deleteUser(e));
         $(document).on('click', '.toggle-user-status-btn', (e) => this.toggleUserStatus(e));
         $(document).on('submit', '#userForm', (e) => this.saveUser(e));
+        
+        // User search events
+        $(document).on('submit', '#userSearchForm', (e) => this.handleUserSearch(e));
+        $(document).on('click', '#clearUserSearch', () => this.clearUserSearch());
 
         // Order events
         $(document).on('click', '.view-order-btn', (e) => this.viewOrderDetail(e));
         $(document).on('click', '.update-order-status', (e) => this.openOrderUpdateModal(e));
         $(document).on('click', '#saveOrderUpdateBtn', () => this.saveOrderUpdate());
         $(document).on('click', '.delete-order-btn', (e) => this.deleteOrder(e));
+        
+        // Order search events
+        $(document).on('submit', '#orderSearchForm', (e) => this.handleOrderSearch(e));
+        $(document).on('click', '#clearOrderSearch', () => this.clearOrderSearch());
 
         // Orders history filter
         $(document).on('submit', '#ordersHistoryFilter', (e) => this.applyOrdersHistoryFilter(e));
@@ -488,14 +506,35 @@ class AdminCRUD {
         try {
             const urlParams = new URLSearchParams(window.location.search);
             const currentPage = parseInt(urlParams.get('p') || '1', 10);
-            const response = await $.get('actions/product_actions.php', { action: 'list', page: currentPage, limit: 10 });
+            const search = urlParams.get('search') || '';
+            const category_id = urlParams.get('category_id') || '';
+            
+            const params = { action: 'list', page: currentPage, limit: 10 };
+            if (search) params.search = search;
+            if (category_id) params.category_id = category_id;
+            
+            console.log('Loading products with params:', params);
+            
+            const response = await $.get('actions/product_actions.php', params);
+            console.log('Product response:', response);
+            
             if (response.success) {
-                const products = (response.data || []);
+                const products = response.data || [];
                 this.renderProductsTable(products);
-                this.renderPagination(response.pages || 1, response.current_page || 1, 'products');
+                
+                // Handle pagination with fallbacks
+                const total = response.total || products.length;
+                const pages = response.pages || Math.ceil(total / 10);
+                const current_page = response.current_page || currentPage;
+                
+                this.renderPagination(pages, current_page, 'products');
+            } else {
+                console.error('Failed to load products:', response.message);
+                this.showAlert('Error', response.message || 'Failed to load products', 'error');
             }
         } catch (error) {
             console.error('Failed to load products:', error);
+            this.showAlert('Error', 'Failed to load products. Please try again.', 'error');
         }
     }
 
@@ -503,57 +542,127 @@ class AdminCRUD {
         try {
             const urlParams = new URLSearchParams(window.location.search);
             const currentPage = parseInt(urlParams.get('p') || '1', 10);
-            const response = await $.get('actions/category_actions.php', { action: 'list', page: currentPage, limit: 10 });
+            const search = urlParams.get('search') || '';
+            
+            const params = { action: 'list', page: currentPage, limit: 10 };
+            if (search) params.search = search;
+            
+            console.log('Loading categories with params:', params);
+            
+            const response = await $.get('actions/category_actions.php', params);
+            console.log('Category response:', response);
+            
             if (response.success) {
                 const categories = response.data || [];
                 this.renderCategoriesTable(categories);
+                
+                // Handle pagination with fallbacks
+                const total = response.total || categories.length;
+                const pages = response.pages || Math.ceil(total / 10);
+                const current_page = response.current_page || currentPage;
+                
                 // Update stats
-                const totalCategories = response.total || categories.length;
+                const totalCategories = total;
                 const totalProducts = categories.reduce((sum, c) => sum + (parseInt(c.product_count, 10) || 0), 0);
                 const avgProducts = totalCategories > 0 ? Math.round(totalProducts / totalCategories) : 0;
                 $('#totalCategories').text(totalCategories);
                 $('#activeCategories').text(totalCategories); // No status field, assume all active
                 $('#totalProducts').text(totalProducts);
                 $('#avgProducts').text(avgProducts);
+                
                 // Render pagination for categories
-                this.renderPagination(response.pages || 1, response.current_page || 1, 'categories');
+                this.renderPagination(pages, current_page, 'categories');
+            } else {
+                console.error('Failed to load categories:', response.message);
+                this.showAlert('Error', response.message || 'Failed to load categories', 'error');
             }
         } catch (error) {
             console.error('Failed to load categories:', error);
+            this.showAlert('Error', 'Failed to load categories. Please try again.', 'error');
         }
     }
 
     async loadUsers() {
         try {
-            const response = await $.get('actions/user_actions.php', { action: 'list' });
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPage = parseInt(urlParams.get('p') || '1', 10);
+            const search = urlParams.get('search') || '';
+            const role = urlParams.get('role') || '';
+            
+            const params = { action: 'list', page: currentPage, limit: 10 };
+            if (search) params.search = search;
+            if (role) params.role = role;
+            
+            console.log('Loading users with params:', params);
+            
+            const response = await $.get('actions/user_actions.php', params);
+            console.log('User response:', response);
+            
             if (response.success) {
-                this.renderUsersTable(response.data);
-                this.renderPagination(response.pages, response.current_page, 'users');
+                const users = response.data || [];
+                this.renderUsersTable(users);
+                
+                // Handle pagination with fallbacks
+                const total = response.total || users.length;
+                const pages = response.pages || Math.ceil(total / 10);
+                const current_page = response.current_page || currentPage;
+                
+                this.renderPagination(pages, current_page, 'users');
+                
                 // Update counters
                 const sc = response.status_counts || {};
                 if (response.total !== undefined) $('#totalUsers').text(response.total);
                 if (sc.active !== undefined) $('#activeUsers').text(sc.active);
                 if (sc.inactive !== undefined) $('#inactiveUsers').text(sc.inactive);
                 if (sc.pending !== undefined) $('#pendingUsers').text(sc.pending);
+            } else {
+                console.error('Failed to load users:', response.message);
+                this.showAlert('Error', response.message || 'Failed to load users', 'error');
             }
         } catch (error) {
             console.error('Failed to load users:', error);
+            this.showAlert('Error', 'Failed to load users. Please try again.', 'error');
         }
     }
 
     async loadOrders(statusFilter = '') {
         try {
-            const params = { action: 'list' };
-            if (statusFilter) params.status = statusFilter;
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPage = parseInt(urlParams.get('p') || '1', 10);
+            const search = urlParams.get('search') || '';
+            const status = urlParams.get('status') || statusFilter || '';
+            const payment_status = urlParams.get('payment_status') || '';
+            
+            const params = { action: 'list', page: currentPage, limit: 10 };
+            if (search) params.search = search;
+            if (status) params.status = status;
+            if (payment_status) params.payment_status = payment_status;
+            
+            console.log('Loading orders with params:', params);
+            
             const response = await $.get('actions/order_actions.php', params);
+            console.log('Order response:', response);
+            
             if (response.success) {
-                this.renderOrdersTable(response.data);
-                this.renderPagination(response.pages, response.current_page, 'orders');
+                const orders = response.data || [];
+                this.renderOrdersTable(orders);
+                
+                // Handle pagination with fallbacks
+                const total = response.total || orders.length;
+                const pages = response.pages || Math.ceil(total / 10);
+                const current_page = response.current_page || currentPage;
+                
+                this.renderPagination(pages, current_page, 'orders');
+                
                 // Load history chart default (last 12 months)
                 await this.loadOrdersHistory();
+            } else {
+                console.error('Failed to load orders:', response.message);
+                this.showAlert('Error', response.message || 'Failed to load orders', 'error');
             }
         } catch (error) {
             console.error('Failed to load orders:', error);
+            this.showAlert('Error', 'Failed to load orders. Please try again.', 'error');
         }
     }
 
@@ -1283,6 +1392,174 @@ class AdminCRUD {
         setTimeout(() => {
             $('.alert').fadeOut();
         }, 5000);
+    }
+
+    // Search Handler Methods
+    handleProductSearch(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const search = formData.get('search') || '';
+        const category_id = formData.get('category_id') || '';
+        
+        console.log('Product search:', { search, category_id });
+        
+        // Update URL with search parameters
+        const url = new URL(window.location);
+        url.searchParams.set('search', search);
+        if (category_id) {
+            url.searchParams.set('category_id', category_id);
+        } else {
+            url.searchParams.delete('category_id');
+        }
+        url.searchParams.set('p', '1'); // Reset to first page
+        window.history.pushState({}, '', url);
+        
+        this.loadProducts();
+    }
+
+    clearProductSearch() {
+        console.log('Clearing product search');
+        $('#productSearchForm')[0].reset();
+        const url = new URL(window.location);
+        url.searchParams.delete('search');
+        url.searchParams.delete('category_id');
+        url.searchParams.set('p', '1');
+        window.history.pushState({}, '', url);
+        this.loadProducts();
+    }
+
+    handleCategorySearch(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const search = formData.get('search') || '';
+        
+        console.log('Category search:', { search });
+        
+        // Update URL with search parameters
+        const url = new URL(window.location);
+        url.searchParams.set('search', search);
+        url.searchParams.set('p', '1'); // Reset to first page
+        window.history.pushState({}, '', url);
+        
+        this.loadCategories();
+    }
+
+    clearCategorySearch() {
+        console.log('Clearing category search');
+        $('#categorySearchForm')[0].reset();
+        const url = new URL(window.location);
+        url.searchParams.delete('search');
+        url.searchParams.set('p', '1');
+        window.history.pushState({}, '', url);
+        this.loadCategories();
+    }
+
+    handleUserSearch(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const search = formData.get('search') || '';
+        const role = formData.get('role') || '';
+        
+        console.log('User search:', { search, role });
+        
+        // Update URL with search parameters
+        const url = new URL(window.location);
+        url.searchParams.set('search', search);
+        if (role) {
+            url.searchParams.set('role', role);
+        } else {
+            url.searchParams.delete('role');
+        }
+        url.searchParams.set('p', '1'); // Reset to first page
+        window.history.pushState({}, '', url);
+        
+        this.loadUsers();
+    }
+
+    clearUserSearch() {
+        console.log('Clearing user search');
+        $('#userSearchForm')[0].reset();
+        const url = new URL(window.location);
+        url.searchParams.delete('search');
+        url.searchParams.delete('role');
+        url.searchParams.set('p', '1');
+        window.history.pushState({}, '', url);
+        this.loadUsers();
+    }
+
+    handleOrderSearch(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const search = formData.get('search') || '';
+        const status = formData.get('status') || '';
+        const payment_status = formData.get('payment_status') || '';
+        
+        console.log('Order search:', { search, status, payment_status });
+        
+        // Update URL with search parameters
+        const url = new URL(window.location);
+        url.searchParams.set('search', search);
+        if (status) {
+            url.searchParams.set('status', status);
+        } else {
+            url.searchParams.delete('status');
+        }
+        if (payment_status) {
+            url.searchParams.set('payment_status', payment_status);
+        } else {
+            url.searchParams.delete('payment_status');
+        }
+        url.searchParams.set('p', '1'); // Reset to first page
+        window.history.pushState({}, '', url);
+        
+        this.loadOrders();
+    }
+
+    clearOrderSearch() {
+        console.log('Clearing order search');
+        $('#orderSearchForm')[0].reset();
+        const url = new URL(window.location);
+        url.searchParams.delete('search');
+        url.searchParams.delete('status');
+        url.searchParams.delete('payment_status');
+        url.searchParams.set('p', '1');
+        window.history.pushState({}, '', url);
+        this.loadOrders();
+    }
+
+    restoreSearchFormState() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const search = urlParams.get('search') || '';
+        const category_id = urlParams.get('category_id') || '';
+        const role = urlParams.get('role') || '';
+        const status = urlParams.get('status') || '';
+        const payment_status = urlParams.get('payment_status') || '';
+
+        // Only set values if the forms exist (prevents errors on different pages)
+        const productSearchForm = $('#productSearchForm');
+        const categorySearchForm = $('#categorySearchForm');
+        const userSearchForm = $('#userSearchForm');
+        const orderSearchForm = $('#orderSearchForm');
+
+        if (productSearchForm.length) {
+            productSearchForm.find('[name=search]').val(search);
+            productSearchForm.find('[name=category_id]').val(category_id);
+        }
+        
+        if (categorySearchForm.length) {
+            categorySearchForm.find('[name=search]').val(search);
+        }
+        
+        if (userSearchForm.length) {
+            userSearchForm.find('[name=search]').val(search);
+            userSearchForm.find('[name=role]').val(role);
+        }
+        
+        if (orderSearchForm.length) {
+            orderSearchForm.find('[name=search]').val(search);
+            orderSearchForm.find('[name=status]').val(status);
+            orderSearchForm.find('[name=payment_status]').val(payment_status);
+        }
     }
 }
 
