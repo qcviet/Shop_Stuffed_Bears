@@ -67,7 +67,7 @@ if ($isProductSearch && !empty($searchQuery) && !empty($searchedProducts)) {
 <?php include __DIR__ . '/../includes/global.php'; ?>
 <?php include __DIR__ . '/header.php'; ?>
 
-<link rel="stylesheet" href="<?php echo PROMOTIONAL_PRICES_CSS; ?>">
+
 
 <div class="container my-4">
 	<div class="row">
