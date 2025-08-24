@@ -1,11 +1,11 @@
 /* Product card title link style */
 .product-title-link {
-	text-decoration: none;
-	color: #e83e8c; /* pink */
+	text-decoration: none !important;
+	color: #e91e63 !important; /* pink */
 }
 .product-title-link:hover {
-	text-decoration: none;
-	color: #d63384; /* darker pink */
+	text-decoration: none !important;
+	color: #c2185b !important; /* darker pink */
 }
 
 /* Size chip pink styles */

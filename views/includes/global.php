@@ -26,6 +26,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <link rel="stylesheet" href="<?php echo BOOTSTRAP_ICONS; ?>">
     <link rel="stylesheet" href="<?php echo CUSTOM_CSS; ?>">
     <link rel="stylesheet" href="<?php echo CHATBOT_CSS; ?>">
+    <link rel="stylesheet" href="<?php echo PROMOTIONAL_PRICES_CSS; ?>">
 </head>
 
 <body>

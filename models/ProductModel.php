@@ -599,6 +599,273 @@ class ProductModel {
         }
     }
 
+    /**
+     * Search products with promotions included
+     */
+    public function searchProductsWithPromotions($search_query = '', $category_id = '', $limit = null, $offset = null) {
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
+                        (SELECT v1.variant_id FROM product_variants v1 WHERE v1.product_id = p.product_id ORDER BY v1.price ASC LIMIT 1) AS min_variant_id,
+                        (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
+                        (SELECT GROUP_CONCAT(DISTINCT CONCAT(v3.variant_id, ':', v3.size, ':', v3.price) ORDER BY v3.price ASC SEPARATOR '|') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS variants_summary,
+                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url,
+                        COALESCE(prom.discount_percent, 0) as discount_percent,
+                        prom.promotion_type,
+                        prom.title as promotion_title
+                  FROM " . $this->table_name . " p 
+                  LEFT JOIN categories c ON p.category_id = c.category_id
+                  LEFT JOIN (
+                      SELECT pr.*
+                      FROM promotions pr
+                      WHERE pr.is_active = 1 
+                      AND pr.start_date <= CURDATE() 
+                      AND pr.end_date >= CURDATE()
+                  ) prom ON (
+                      prom.promotion_type = 'general' OR
+                      (prom.promotion_type = 'category' AND prom.target_id = p.category_id) OR
+                      (prom.promotion_type = 'product' AND prom.target_id = p.product_id)
+                  )
+                  WHERE 1=1";
+        
+        $params = [];
+        
+        // Add search query condition with improved fuzzy search
+        if (!empty($search_query)) {
+            $query .= " AND (
+                p.product_name LIKE :search_query 
+                OR p.product_name LIKE :search_start 
+                OR p.product_name LIKE :search_end 
+                OR p.product_name LIKE :search_words
+                OR p.description LIKE :search_query 
+                OR p.description LIKE :search_start 
+                OR p.description LIKE :search_end
+            )";
+            $params[':search_query'] = '%' . $search_query . '%';
+            $params[':search_start'] = $search_query . '%';
+            $params[':search_end'] = '%' . $search_query;
+            $params[':search_words'] = '%' . str_replace(' ', '%', $search_query) . '%';
+        }
+        
+        // Add category filter
+        if (!empty($category_id)) {
+            $query .= " AND p.category_id = :category_id";
+            $params[':category_id'] = $category_id;
+        }
+        
+        $query .= " ORDER BY p.created_at DESC";
+        
+        // Add pagination
+        if ($limit) {
+            $query .= " LIMIT :limit";
+            if ($offset) {
+                $query .= " OFFSET :offset";
+            }
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind search and filter parameters first
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        // Bind LIMIT and OFFSET parameters separately
+        if ($limit) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get products by category with promotions included
+     */
+    public function getByCategoryWithPromotions($category_id, $min = null, $max = null, $sizes = [], $limit = null, $offset = null) {
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
+                        (SELECT v1.variant_id FROM product_variants v1 WHERE v1.product_id = p.product_id ORDER BY v1.price ASC LIMIT 1) AS min_variant_id,
+                        (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
+                        (SELECT GROUP_CONCAT(DISTINCT CONCAT(v3.variant_id, ':', v3.size, ':', v3.price) ORDER BY v3.price ASC SEPARATOR '|') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS variants_summary,
+                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url,
+                        COALESCE(prom.discount_percent, 0) as discount_percent,
+                        prom.promotion_type,
+                        prom.title as promotion_title
+                  FROM " . $this->table_name . " p 
+                  LEFT JOIN categories c ON p.category_id = c.category_id
+                  LEFT JOIN (
+                      SELECT pr.*
+                      FROM promotions pr
+                      WHERE pr.is_active = 1 
+                      AND pr.start_date <= CURDATE() 
+                      AND pr.end_date >= CURDATE()
+                  ) prom ON (
+                      prom.promotion_type = 'general' OR
+                      (prom.promotion_type = 'category' AND prom.target_id = p.category_id) OR
+                      (prom.promotion_type = 'product' AND prom.target_id = p.product_id)
+                  )
+                  WHERE p.category_id = :category_id";
+        
+        $params = [':category_id' => $category_id];
+        
+        // Add price filters
+        if ($min !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) >= :min";
+            $params[':min'] = $min;
+        }
+        
+        if ($max !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) <= :max";
+            $params[':max'] = $max;
+        }
+        
+        // Add size filters
+        if (!empty($sizes)) {
+            $placeholders = [];
+            foreach ($sizes as $i => $size) {
+                $placeholders[] = ":size_" . $i;
+                $params[':size_' . $i] = $size;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_variants v 
+                WHERE v.product_id = p.product_id 
+                AND v.size IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        $query .= " ORDER BY p.created_at DESC";
+        
+        // Add pagination
+        if ($limit) {
+            $query .= " LIMIT :limit";
+            if ($offset) {
+                $query .= " OFFSET :offset";
+            }
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        // Bind LIMIT and OFFSET parameters separately
+        if ($limit) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Calculate discounted price for a product with variants
+     */
+    public function calculateDiscountedPriceForProduct($product) {
+        if (!$product || !isset($product['discount_percent']) || $product['discount_percent'] <= 0) {
+            return null;
+        }
+        
+        $discount_percent = $product['discount_percent'];
+        $original_price = $product['price'] ?? 0;
+        
+        if ($original_price <= 0) {
+            return null;
+        }
+        
+        $discounted_price = $original_price * (1 - $discount_percent / 100);
+        
+        return [
+            'original_price' => $original_price,
+            'discount_percent' => $discount_percent,
+            'discounted_price' => $discounted_price,
+            'promotion_title' => $product['promotion_title'] ?? null
+        ];
+    }
+
+    /**
+     * Get newest products with promotions included
+     */
+    public function getNewestProductsWithPromotions($limit = 10, $offset = 0, $category_id = null) {
+        try {
+            $query = "SELECT 
+                            p.*, 
+                            c.category_name,
+                            (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
+                            (SELECT v1.variant_id FROM product_variants v1 WHERE v1.product_id = p.product_id ORDER BY v1.price ASC LIMIT 1) AS min_variant_id,
+                            (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
+                            (SELECT GROUP_CONCAT(DISTINCT CONCAT(v3.variant_id, ':', v3.size, ':', v3.price) ORDER BY v3.price ASC SEPARATOR '|') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS variants_summary,
+                            (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url,
+                            COALESCE(prom.discount_percent, 0) as discount_percent,
+                            prom.promotion_type,
+                            prom.title as promotion_title
+                      FROM " . $this->table_name . " p 
+                      LEFT JOIN categories c ON p.category_id = c.category_id
+                      LEFT JOIN (
+                          SELECT pr.*
+                          FROM promotions pr
+                          WHERE pr.is_active = 1 
+                          AND pr.start_date <= CURDATE() 
+                          AND pr.end_date >= CURDATE()
+                      ) prom ON (
+                          prom.promotion_type = 'general' OR
+                          (prom.promotion_type = 'category' AND prom.target_id = p.category_id) OR
+                          (prom.promotion_type = 'product' AND prom.target_id = p.product_id)
+                      )
+                      WHERE 1=1";
+            
+            $params = [];
+            
+            // Add category filter
+            if ($category_id) {
+                $query .= " AND p.category_id = :category_id";
+                $params[':category_id'] = $category_id;
+            }
+            
+            $query .= " ORDER BY p.created_at DESC";
+            
+            // Add pagination
+            if ($limit) {
+                $query .= " LIMIT :limit";
+                if ($offset) {
+                    $query .= " OFFSET :offset";
+                }
+            }
+            
+            $stmt = $this->conn->prepare($query);
+            
+            // Bind parameters
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            
+            // Bind LIMIT and OFFSET parameters separately
+            if ($limit) {
+                $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+                if ($offset) {
+                    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+                }
+            }
+            
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("ProductModel getNewestProductsWithPromotions error: " . $e->getMessage());
+            return [];
+        }
+    }
+
 
 }
 ?> 

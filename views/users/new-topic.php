@@ -52,15 +52,17 @@ if (!empty($configuredCategoryIds)) {
 // Map 4 decorative images to the 4 featured categories by index
 $categoryImages = ['ct1.png', 'ct2.png', 'ct3.png', 'ct4.png'];
 
-// Fetch newest product (max 1) for each category
+// Fetch newest product (max 1) for each category with promotions
 $newestProductsByCat = [];
 if ($productModel) {
     foreach ($featuredCategoryIds as $cid) {
-        $prods = $productModel->getAll(1, 0, $cid);
+        $prods = $productModel->getNewestProductsWithPromotions(1, 0, $cid);
         $newestProductsByCat[$cid] = $prods && isset($prods[0]) ? $prods[0] : null;
     }
 }
 ?>
+
+<link rel="stylesheet" href="<?php echo PROMOTIONAL_PRICES_CSS; ?>">
 
 <div class="new-topic py-3 py-md-4">
     <div class="container px-2 px-md-4">
@@ -121,6 +123,13 @@ if ($productModel) {
                     // Determine display price: prefer min variant price if variants exist, else base product price
                     $displayPriceValue = !empty($variants) ? (float)$variants[$minIdx]['price'] : $productPriceValue;
                     $displayPrice = $displayPriceValue > 0 ? number_format($displayPriceValue, 0, ',', '.') . 'đ' : '';
+                    
+                    // Check for promotions
+                    $hasDiscount = $product && isset($product['discount_percent']) && $product['discount_percent'] > 0;
+                    $discountInfo = null;
+                    if ($hasDiscount) {
+                        $discountInfo = $productModel->calculateDiscountedPriceForProduct($product);
+                    }
                 ?>
                 <div class="col-6 col-md-3">
                     <div class="new-topic-product h-100">
@@ -132,7 +141,22 @@ if ($productModel) {
                             <a class="product-title-link d-inline-block mt-2" href="<?php echo $detailLink; ?>">
                                 <h2 class="new-topic-product-card-title" style="font-size:16px;font-weight:600;margin:0;"><?php echo htmlspecialchars($productName); ?></h2>
                             </a>
-                            <p class="new-topic-product-card-price js-price" data-price="<?php echo (int)$displayPriceValue; ?>"><?php echo $displayPrice; ?></p>
+                            <div class="new-topic-product-card-price">
+                                <?php if ($hasDiscount && $discountInfo): ?>
+                                    <span class="original-price"><?php echo number_format($discountInfo['original_price'], 0, ',', '.'); ?> ₫</span>
+                                    <span class="discounted-price js-price" data-price="<?php echo (int)$discountInfo['discounted_price']; ?>">
+                                        <?php echo number_format($discountInfo['discounted_price'], 0, ',', '.'); ?> ₫
+                                    </span>
+                                    <span class="promotion-badge">-<?php echo $discountInfo['discount_percent']; ?>%</span>
+                                    <?php if ($discountInfo['promotion_title']): ?>
+                                        <div class="promotion-info">
+                                            <i class="fas fa-gift me-1"></i><?php echo htmlspecialchars($discountInfo['promotion_title']); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="js-price" data-price="<?php echo (int)$displayPriceValue; ?>"><?php echo $displayPrice; ?></span>
+                                <?php endif; ?>
+                            </div>
                             <?php if (!empty($variants)): ?>
                                 <div class="new-topic-product-sizes d-flex flex-wrap justify-content-center gap-2">
                                     <?php ?>

@@ -20,7 +20,7 @@ $search_results = [];
 $total_results = 0;
 
 if (!empty($search_query)) {
-    $search_results = $productModel->searchProducts($search_query, '', $per_page, $offset);
+    $search_results = $productModel->searchProductsWithPromotions($search_query, '', $per_page, $offset);
     $total_results = $productModel->getSearchCount($search_query, '');
 }
 
@@ -39,6 +39,7 @@ $total_pages = ceil($total_results / $per_page);
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/header.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/footer.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/search.css">
+    <link rel="stylesheet" href="<?php echo PROMOTIONAL_PRICES_CSS; ?>">
 </head>
 <body>
     <?php include 'header.php'; ?>
@@ -91,8 +92,32 @@ $total_pages = ceil($total_results / $per_page);
                                     }
                                 }
                                 $initialPrice = isset($variants[0]) ? (int)round($variants[0]['price']) : (isset($product['price']) ? (int)round($product['price']) : 0);
+                                
+                                // Check for promotions
+                                $hasDiscount = isset($product['discount_percent']) && $product['discount_percent'] > 0;
+                                $discountInfo = null;
+                                if ($hasDiscount) {
+                                    $discountInfo = $productModel->calculateDiscountedPriceForProduct($product);
+                                }
                             ?>
-                            <div class="product-price js-price"><?php echo $initialPrice > 0 ? number_format($initialPrice, 0, ',', '.') . ' VNĐ' : '—'; ?></div>
+                            <div class="product-price">
+                                <?php if ($hasDiscount && $discountInfo): ?>
+                                    <span class="original-price"><?php echo number_format($discountInfo['original_price'], 0, ',', '.'); ?> ₫</span>
+                                    <span class="discounted-price js-price" data-price="<?php echo (int)$discountInfo['discounted_price']; ?>">
+                                        <?php echo number_format($discountInfo['discounted_price'], 0, ',', '.'); ?> ₫
+                                    </span>
+                                    <span class="promotion-badge">-<?php echo $discountInfo['discount_percent']; ?>%</span>
+                                    <?php if ($discountInfo['promotion_title']): ?>
+                                        <div class="promotion-info">
+                                            <i class="fas fa-gift me-1"></i><?php echo htmlspecialchars($discountInfo['promotion_title']); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="js-price" data-price="<?php echo $initialPrice; ?>">
+                                        <?php echo $initialPrice > 0 ? number_format($initialPrice, 0, ',', '.') . ' ₫' : '—'; ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                             <?php if (!empty($variants)): ?>
                             <div class="mb-2 d-flex flex-wrap gap-2">
                                 <?php foreach ($variants as $idx => $v): ?>

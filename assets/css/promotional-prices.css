@@ -1,0 +1,122 @@
+/* Promotional Price Styling */
+.product-price,
+.new-topic-product-card-price {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin: 0.5rem 0;
+}
+
+.original-price {
+    text-decoration: line-through;
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-right: 0.5rem;
+}
+
+.discounted-price {
+    color: #dc3545;
+    font-weight: 700;
+}
+
+.promotion-badge {
+    background: linear-gradient(45deg, #dc3545, #fd7e14);
+    color: white;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    margin-left: 0.5rem;
+    display: inline-block;
+}
+
+.promotion-info {
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: #1976d2;
+    display: block;
+}
+
+/* Product title styling - remove underline and change to pink */
+.product-title-link {
+    text-decoration: none !important;
+    color: #e91e63 !important;
+    transition: color 0.3s ease;
+}
+
+.product-title-link:hover {
+    color: #c2185b !important;
+    text-decoration: none !important;
+}
+
+.product-title-link h3,
+.product-title-link .product-title {
+    color: #e91e63 !important;
+    text-decoration: none !important;
+}
+
+.product-title-link:hover h3,
+.product-title-link:hover .product-title {
+    color: #c2185b !important;
+    text-decoration: none !important;
+}
+
+/* Hover effects for promotion badges */
+.promotion-badge:hover {
+    background: linear-gradient(45deg, #c82333, #e55a00);
+    transform: scale(1.05);
+    transition: all 0.2s ease;
+}
+
+/* Animation for promotional prices */
+@keyframes priceHighlight {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.discounted-price {
+    animation: priceHighlight 0.3s ease-in-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .product-price,
+    .new-topic-product-card-price {
+        font-size: 1rem;
+    }
+    
+    .original-price {
+        font-size: 0.8rem;
+    }
+    
+    .promotion-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .promotion-info {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+    }
+}
+
+/* Ensure proper spacing in product cards */
+.product-card .product-price,
+.card .product-price {
+    margin-bottom: 0.5rem;
+}
+
+/* Special styling for new-topic section */
+.new-topic-product-card .new-topic-product-card-price {
+    margin: 0.5rem 0;
+    text-align: center;
+}
+
+/* Ensure promotion info doesn't break layout */
+.promotion-info {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
