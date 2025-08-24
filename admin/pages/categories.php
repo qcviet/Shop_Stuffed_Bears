@@ -13,6 +13,34 @@ if (!$db) {
     </button>
 </div>
 
+<!-- Search Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="categorySearchForm" class="row g-3">
+            <div class="col-md-6">
+                <label for="categorySearch" class="form-label">Search Categories</label>
+                <input type="text" class="form-control" id="categorySearch" name="search" placeholder="Search by name, description...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="button" class="btn btn-outline-secondary" id="clearCategorySearch">
+                        <i class="bi bi-x-circle"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-8">
         <div class="table-responsive">

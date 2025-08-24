@@ -18,6 +18,42 @@ if (!$db) {
     </div>
 </div>
 
+<!-- Search Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="userSearchForm" class="row g-3">
+            <div class="col-md-4">
+                <label for="userSearch" class="form-label">Search Users</label>
+                <input type="text" class="form-control" id="userSearch" name="search" placeholder="Search by username, email, name...">
+            </div>
+            <div class="col-md-3">
+                <label for="userRoleFilter" class="form-label">Role</label>
+                <select class="form-select" id="userRoleFilter" name="role">
+                    <option value="">All Roles</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="button" class="btn btn-outline-secondary" id="clearUserSearch">
+                        <i class="bi bi-x-circle"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="table-responsive">
     <table class="table table-hover" id="usersTable">
         <thead>

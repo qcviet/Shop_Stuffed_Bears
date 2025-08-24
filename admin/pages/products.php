@@ -25,6 +25,45 @@ if (!$db) {
     </button>
 </div>
 
+<!-- Search Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="productSearchForm" class="row g-3">
+            <div class="col-md-4">
+                <label for="productSearch" class="form-label">Search Products</label>
+                <input type="text" class="form-control" id="productSearch" name="search" placeholder="Search by name, description...">
+            </div>
+            <div class="col-md-3">
+                <label for="categoryFilter" class="form-label">Category</label>
+                <select class="form-select" id="categoryFilter" name="category_id">
+                    <option value="">All Categories</option>
+                    <?php foreach ($categories as $category): ?>
+                        <option value="<?php echo $category['category_id']; ?>">
+                            <?php echo htmlspecialchars($category['category_name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="button" class="btn btn-outline-secondary" id="clearProductSearch">
+                        <i class="bi bi-x-circle"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="table-responsive">
     <table class="table table-hover" id="productsTable">
         <thead>

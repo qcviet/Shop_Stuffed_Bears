@@ -13,6 +13,53 @@
     </div>
 </div>
 
+<!-- Search Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="orderSearchForm" class="row g-3">
+            <div class="col-md-3">
+                <label for="orderSearch" class="form-label">Search Orders</label>
+                <input type="text" class="form-control" id="orderSearch" name="search" placeholder="Search by order ID, customer...">
+            </div>
+            <div class="col-md-2">
+                <label for="orderStatusFilter" class="form-label">Status</label>
+                <select class="form-select" id="orderStatusFilter" name="status">
+                    <option value="">All Status</option>
+                    <option value="Chờ xác nhận">Chờ xác nhận</option>
+                    <option value="Đã xác nhận">Đã xác nhận</option>
+                    <option value="Đang giao">Đang giao</option>
+                    <option value="Đã giao">Đã giao</option>
+                    <option value="Đã hủy">Đã hủy</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="orderPaymentFilter" class="form-label">Payment</label>
+                <select class="form-select" id="orderPaymentFilter" name="payment_status">
+                    <option value="">All Payment</option>
+                    <option value="Chưa thanh toán">Chưa thanh toán</option>
+                    <option value="Đã thanh toán">Đã thanh toán</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="button" class="btn btn-outline-secondary" id="clearOrderSearch">
+                        <i class="bi bi-x-circle"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="table-responsive">
     <table class="table table-hover" id="ordersTable">
         <thead>
