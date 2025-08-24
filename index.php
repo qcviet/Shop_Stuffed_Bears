@@ -154,6 +154,15 @@ if ($conn) {
         case 'search':
             include 'views/users/search.php';
             break;
+        case 'articles':
+            include 'views/users/articles.php';
+            break;
+        case 'article':
+            include 'views/users/article-detail.php';
+            break;
+        case 'promotions':
+            include 'views/users/promotions.php';
+            break;
         default:
             include 'views/users/404.php';
             break;
