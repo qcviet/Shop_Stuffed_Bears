@@ -86,3 +86,28 @@ CREATE TABLE IF NOT EXISTS product_colors (
     color_name VARCHAR(50) NOT NULL,
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
+
+
+CREATE TABLE IF NOT EXISTS posts (
+    post_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,             -- tiêu đề bài viết
+    content TEXT NOT NULL,                   -- nội dung bài viết
+    thumbnail VARCHAR(255),                  -- ảnh đại diện (nếu có)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   -- ngày tạo
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- ngày cập nhật
+);
+
+CREATE TABLE IF NOT EXISTS promotions (
+    promotion_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,             -- tiêu đề khuyến mãi
+    description TEXT,                        -- mô tả ngắn
+    discount_percent DECIMAL(5,2) NOT NULL,  -- phần trăm giảm giá
+    promotion_type ENUM('category', 'product', 'general') DEFAULT 'general', -- loại khuyến mãi
+    target_id INT NULL,                      -- ID danh mục hoặc sản phẩm (nếu áp dụng cụ thể)
+    start_date DATE NOT NULL,                -- ngày bắt đầu
+    end_date DATE NOT NULL,                  -- ngày kết thúc
+    is_active BOOLEAN DEFAULT TRUE,          -- trạng thái hoạt động
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
