@@ -97,13 +97,15 @@ if ($conn) {
         case 'about':
             include 'views/users/about-page.php';
             break;
+        case 'contact':
+            include 'views/users/contact.php';
+            break;
         case 'teddy-bears':
         case 'blind-box':
         case 'gifts':
         case 'cartoons':
         case 'accessories':
         case 'help':
-        case 'contact':
             include 'views/users/coming-soon.php';
             break;
         case 'login':

@@ -174,6 +174,45 @@ class ProductModel {
         return array_map(function($r) { return $r['size']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /**
+     * Get distinct colors available for a category
+     */
+    public function getColorsForCategory($category_id) {
+        $query = "SELECT DISTINCT pc.color_name 
+                  FROM product_colors pc 
+                  JOIN products p ON p.product_id = pc.product_id 
+                  WHERE p.category_id = :cid 
+                  ORDER BY pc.color_name ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':cid', $category_id);
+        $stmt->execute();
+        return array_map(function($r) { return $r['color_name']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /**
+     * Get all distinct sizes available across all products
+     */
+    public function getAllSizes() {
+        $query = "SELECT DISTINCT v.size 
+                  FROM product_variants v 
+                  ORDER BY v.size ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        return array_map(function($r) { return $r['size']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /**
+     * Get all distinct colors available across all products
+     */
+    public function getAllColors() {
+        $query = "SELECT DISTINCT pc.color_name 
+                  FROM product_colors pc 
+                  ORDER BY pc.color_name ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        return array_map(function($r) { return $r['color_name']; }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     // Search products with enhanced functionality
     public function search($search_term, $limit = null, $offset = null) {
         return $this->searchProducts($search_term, '', $limit, $offset);
@@ -684,9 +723,231 @@ class ProductModel {
     }
 
     /**
+     * Get total count of all products with filters
+     */
+    public function getAllProductsCount($min = null, $max = null, $sizes = [], $colors = []) {
+        $query = "SELECT COUNT(DISTINCT p.product_id) as total
+                  FROM " . $this->table_name . " p 
+                  WHERE 1=1";
+        
+        $params = [];
+        
+        // Add price filters
+        if ($min !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) >= :min";
+            $params[':min'] = $min;
+        }
+        
+        if ($max !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) <= :max";
+            $params[':max'] = $max;
+        }
+        
+        // Add size filters
+        if (!empty($sizes)) {
+            $placeholders = [];
+            foreach ($sizes as $i => $size) {
+                $placeholders[] = ":size_" . $i;
+                $params[':size_' . $i] = $size;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_variants v 
+                WHERE v.product_id = p.product_id 
+                AND v.size IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        // Add color filters
+        if (!empty($colors)) {
+            $placeholders = [];
+            foreach ($colors as $i => $color) {
+                $placeholders[] = ":color_" . $i;
+                $params[':color_' . $i] = $color;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_colors pc 
+                WHERE pc.product_id = p.product_id 
+                AND pc.color_name IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['total'] ?? 0;
+    }
+
+    /**
+     * Get total count of products in a category with filters
+     */
+    public function getCategoryProductsCount($category_id, $min = null, $max = null, $sizes = [], $colors = []) {
+        $query = "SELECT COUNT(DISTINCT p.product_id) as total
+                  FROM " . $this->table_name . " p 
+                  WHERE p.category_id = :category_id";
+        
+        $params = [':category_id' => $category_id];
+        
+        // Add price filters
+        if ($min !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) >= :min";
+            $params[':min'] = $min;
+        }
+        
+        if ($max !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) <= :max";
+            $params[':max'] = $max;
+        }
+        
+        // Add size filters
+        if (!empty($sizes)) {
+            $placeholders = [];
+            foreach ($sizes as $i => $size) {
+                $placeholders[] = ":size_" . $i;
+                $params[':size_' . $i] = $size;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_variants v 
+                WHERE v.product_id = p.product_id 
+                AND v.size IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        // Add color filters
+        if (!empty($colors)) {
+            $placeholders = [];
+            foreach ($colors as $i => $color) {
+                $placeholders[] = ":color_" . $i;
+                $params[':color_' . $i] = $color;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_colors pc 
+                WHERE pc.product_id = p.product_id 
+                AND pc.color_name IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['total'] ?? 0;
+    }
+
+    /**
+     * Get all products with promotions included
+     */
+    public function getAllProductsWithPromotions($min = null, $max = null, $sizes = [], $colors = [], $limit = null, $offset = null) {
+        $query = "SELECT 
+                        p.*, 
+                        c.category_name,
+                        (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) AS price,
+                        (SELECT v1.variant_id FROM product_variants v1 WHERE v1.product_id = p.product_id ORDER BY v1.price ASC LIMIT 1) AS min_variant_id,
+                        (SELECT COALESCE(SUM(v2.stock), 0) FROM product_variants v2 WHERE v2.product_id = p.product_id) AS stock,
+                        (SELECT GROUP_CONCAT(DISTINCT CONCAT(v3.variant_id, ':', v3.size, ':', v3.price) ORDER BY v3.price ASC SEPARATOR '|') FROM product_variants v3 WHERE v3.product_id = p.product_id) AS variants_summary,
+                        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.product_id ORDER BY pi.image_id ASC LIMIT 1) AS image_url,
+                        COALESCE(prom.discount_percent, 0) as discount_percent,
+                        prom.promotion_type,
+                        prom.title as promotion_title
+                  FROM " . $this->table_name . " p 
+                  LEFT JOIN categories c ON p.category_id = c.category_id
+                  LEFT JOIN (
+                      SELECT pr.*
+                      FROM promotions pr
+                      WHERE pr.is_active = 1 
+                      AND pr.start_date <= CURDATE() 
+                      AND pr.end_date >= CURDATE()
+                  ) prom ON (
+                      prom.promotion_type = 'general' OR
+                      (prom.promotion_type = 'category' AND prom.target_id = p.category_id) OR
+                      (prom.promotion_type = 'product' AND prom.target_id = p.product_id)
+                  )
+                  WHERE 1=1";
+        
+        $params = [];
+        
+        // Add price filters
+        if ($min !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) >= :min";
+            $params[':min'] = $min;
+        }
+        
+        if ($max !== null) {
+            $query .= " AND (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.product_id) <= :max";
+            $params[':max'] = $max;
+        }
+        
+        // Add size filters
+        if (!empty($sizes)) {
+            $placeholders = [];
+            foreach ($sizes as $i => $size) {
+                $placeholders[] = ":size_" . $i;
+                $params[':size_' . $i] = $size;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_variants v 
+                WHERE v.product_id = p.product_id 
+                AND v.size IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        // Add color filters
+        if (!empty($colors)) {
+            $placeholders = [];
+            foreach ($colors as $i => $color) {
+                $placeholders[] = ":color_" . $i;
+                $params[':color_' . $i] = $color;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_colors pc 
+                WHERE pc.product_id = p.product_id 
+                AND pc.color_name IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        $query .= " ORDER BY p.created_at DESC";
+        
+        // Add pagination
+        if ($limit) {
+            $query .= " LIMIT :limit";
+            if ($offset) {
+                $query .= " OFFSET :offset";
+            }
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // Bind parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        // Bind LIMIT and OFFSET parameters separately
+        if ($limit) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            if ($offset) {
+                $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Get products by category with promotions included
      */
-    public function getByCategoryWithPromotions($category_id, $min = null, $max = null, $sizes = [], $limit = null, $offset = null) {
+    public function getByCategoryWithPromotions($category_id, $min = null, $max = null, $sizes = [], $colors = [], $limit = null, $offset = null) {
         $query = "SELECT 
                         p.*, 
                         c.category_name,
@@ -737,6 +998,20 @@ class ProductModel {
                 SELECT 1 FROM product_variants v 
                 WHERE v.product_id = p.product_id 
                 AND v.size IN (" . implode(',', $placeholders) . ")
+            )";
+        }
+        
+        // Add color filters
+        if (!empty($colors)) {
+            $placeholders = [];
+            foreach ($colors as $i => $color) {
+                $placeholders[] = ":color_" . $i;
+                $params[':color_' . $i] = $color;
+            }
+            $query .= " AND EXISTS (
+                SELECT 1 FROM product_colors pc 
+                WHERE pc.product_id = p.product_id 
+                AND pc.color_name IN (" . implode(',', $placeholders) . ")
             )";
         }
         
