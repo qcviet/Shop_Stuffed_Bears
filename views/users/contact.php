@@ -153,56 +153,8 @@ require_once __DIR__ . '/../../config/config.php';
     </div>
 </div>
 
-<style>
-.card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
-}
-
-.form-control:focus, .form-select:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-}
-
-.bg-primary {
-    background-color: var(--primary-color) !important;
-}
-
-.text-primary {
-    color: var(--primary-color) !important;
-}
-</style>
-
-<script>
-document.getElementById('contactForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    // Get form data
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData);
-    
-    // Show success message (in a real app, you'd send this to a server)
-    alert('Cảm ơn bạn đã liên hệ với chúng tôi! Chúng tôi sẽ phản hồi sớm nhất có thể.');
-    
-    // Reset form
-    this.reset();
-});
-</script>
+<!-- Include CSS and JS files -->
+<link rel="stylesheet" href="assets/css/contact.css">
+<script src="assets/js/contact.js"></script>
 
 <?php include __DIR__ . '/footer.php'; ?>
