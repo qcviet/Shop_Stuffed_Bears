@@ -22,6 +22,8 @@
 
 <?php include __DIR__ . '/new-topic.php'; ?>
 
+<?php include __DIR__ . '/featured-categories.php'; ?>
+
 <?php include __DIR__ . '/collection-slider.php'; ?>
 
 <?php include __DIR__ . '/footer.php'; ?>

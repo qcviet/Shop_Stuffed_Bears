@@ -98,6 +98,117 @@
 /* Main image container to force equal square and cover */
 .product-main-image {
 	width: 100%;
+
+/* Related Products Section */
+#related-products .product-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#related-products .product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    border-color: var(--secondary-color, #ff7973);
+}
+
+#related-products .product-image-container {
+    position: relative;
+    overflow: hidden;
+}
+
+#related-products .product-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+#related-products .product-card:hover .product-image {
+    transform: scale(1.05);
+}
+
+#related-products .card-title a {
+    color: var(--secondary-color, #ff7973);
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+#related-products .card-title a:hover {
+    color: var(--single-text-color, #02c4c1);
+}
+
+#related-products .product-price {
+    color: var(--secondary-color, #ff7973);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+#related-products .related-product-price {
+    color: var(--secondary-color, #ff7973);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+/* Ensure related products don't interfere with main product price updates */
+#related-products .product-card {
+    pointer-events: auto;
+}
+
+#related-products .product-card * {
+    pointer-events: auto;
+}
+
+#related-products .variant-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+#related-products .variant-chip {
+    background: #f8f9fa;
+    color: #666;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+#related-products .variant-chip:hover {
+    background: var(--secondary-color, #ff7973);
+    color: white;
+    border-color: var(--secondary-color, #ff7973);
+}
+
+#related-products .variant-chip.more {
+    background: var(--single-text-color, #02c4c1);
+    color: white;
+    border-color: var(--single-text-color, #02c4c1);
+}
+
+/* Responsive adjustments for related products */
+@media (max-width: 768px) {
+    #related-products .product-image {
+        height: 180px;
+    }
+    
+    #related-products .card-title a {
+        font-size: 0.9rem;
+    }
+    
+    #related-products .product-price {
+        font-size: 1rem;
+    }
+}
 	aspect-ratio: 1 / 1;
 	border-radius: 12px;
 	background-color: #fff;

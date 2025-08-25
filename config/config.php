@@ -6,6 +6,7 @@ define('BOOTSTRAP_ICONS', BASE_URL . '/node_modules/bootstrap-icons/font/bootstr
 define('CUSTOM_CSS', BASE_URL . '/assets/css/index.css');
 define('CHATBOT_CSS', BASE_URL . '/assets/css/chatbot.css');
 define('PROMOTIONAL_PRICES_CSS', BASE_URL . '/assets/css/promotional-prices.css');
+define('FEATURED_CATEGORIES_CSS', BASE_URL . '/assets/css/featured-categories.css');
 define('IMG_PATH', BASE_URL . '/assets/images');
 define('JQUERY_JS', BASE_URL . '/assets/js/jquery-3.7.1.min.js');
 define('CUSTOM_JS', BASE_URL . '/assets/js/main.js');
